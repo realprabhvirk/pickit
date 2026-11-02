@@ -37,7 +37,7 @@ RestartApplications=no
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "background"; Description: "Keep PicKit running, for Ctrl+Alt+S snips and the ribbon"
+Name: "background"; Description: "Open PicKit when I sign in, for Ctrl+Alt+S snips and the ribbon"
 Name: "explorermenu"; Description: "Show PicKit when right-clicking images in File Explorer"
 Name: "openwith"; Description: "List PicKit under ""Open with"" for image files"; Flags: unchecked
 Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked

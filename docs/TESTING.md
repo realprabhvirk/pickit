@@ -5,7 +5,7 @@
 | Suite | Tests | Covers |
 |---|---|---|
 | `tests/PicKit.Tests` | 428 | Resize, crop, compression, conversion, undo, rename, batch, metadata, clipboard formats, Explorer registration |
-| `tests/PicKit.UiTests` | 265 | The real window end to end: every tool, save flows, prompts, batch, rename, display scaling, accessibility names |
+| `tests/PicKit.UiTests` | 266 | The real window end to end: every tool, save flows, prompts, batch, rename, display scaling, accessibility names |
 
 The UI tests run off-screen, never take focus, and use an in-memory clipboard, so they can run while the PC is being used. Registry tests write only under a throwaway key.
 
@@ -102,6 +102,7 @@ These need a person, or a real install, and have **not** been done yet.
 - [ ] Drag the ribbon along the edge or to the other side, and it stays there after signing out
 - [ ] The ribbon steps aside for full-screen video
 - [ ] After signing out and in again, the hotkey works without opening PicKit
+- [ ] With Open PicKit when I sign in turned off, nothing starts at sign-in
 - [ ] Space + drag and middle-button drag pan
 - [ ] Drawing with a pen tablet feels smooth
 - [ ] Drag images and a folder onto the window from File Explorer

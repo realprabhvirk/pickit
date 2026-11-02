@@ -330,6 +330,22 @@ public class BackgroundSettingsUiTests
     }
 
     [Fact]
+    public void The_sign_in_setting_shows_what_the_installer_chose() => UiHarness.Run(harness =>
+        WithSettings(harness, (_, _, shell, store) =>
+        {
+            shell.RegisterBackground();
+
+            var settings = new SettingsViewModel(
+                new SettingsStore(Path.Combine(harness.Folder, "sign-in-test.json")),
+                new RecentFiles(Path.Combine(harness.Folder, "sign-in-recent.json")),
+                shell,
+                () => { },
+                store);
+
+            Assert.True(settings.RunInBackground);
+        }));
+
+    [Fact]
     public void Turning_background_running_on_and_off_starts_and_stops_the_helper() => UiHarness.Run(harness =>
         WithSettings(harness, (settings, control, shell, _) =>
         {

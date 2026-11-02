@@ -105,8 +105,17 @@
             <TextBlock
                 Margin="0,22,0,8"
                 Style="{StaticResource PanelHeading}"
+                Text="Startup" />
+            <CheckBox Content="Open PicKit when I sign in" IsChecked="{Binding RunInBackground}" />
+            <TextBlock
+                Margin="0,4,0,0"
+                Style="{StaticResource BodyHint}"
+                Text="It starts quietly with no window, ready for Ctrl+Alt+S and the ribbon. Turning this off stops both until you turn it back on." />
+
+            <TextBlock
+                Margin="0,22,0,8"
+                Style="{StaticResource PanelHeading}"
                 Text="Screenshots" />
-            <CheckBox Content="Keep PicKit running, for Ctrl+Alt+S and the ribbon" IsChecked="{Binding RunInBackground}" />
             <CheckBox
                 Content="Show the ribbon at the edge of the screen"
                 IsChecked="{Binding ShowRibbon}"
