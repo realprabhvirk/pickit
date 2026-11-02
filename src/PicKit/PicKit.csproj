@@ -40,8 +40,11 @@
     <None Include="Assets\PicKit.ico" Link="PicKit.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
-  <!-- The model lives outside the source tree. Builds carry it along when it has been fetched. -->
-  <ItemGroup Condition="Exists('$(ArtifactsPath)\models\isnet-general-use.onnx')">
+  <!--
+    The model lives outside the source tree. Development builds carry it along when it has been
+    fetched. Releases leave it out: its licence is unclear, and PicKit ships with no AI.
+  -->
+  <ItemGroup Condition="'$(Configuration)' != 'Release' And Exists('$(ArtifactsPath)\models\isnet-general-use.onnx')">
     <None Include="$(ArtifactsPath)\models\isnet-general-use.onnx" Link="models\isnet-general-use.onnx" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

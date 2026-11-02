@@ -13,7 +13,7 @@ No accounts, no cloud, no projects, no library. Everything happens on your PC, a
 | **Edit** | Crop, resize in pixels, mm or cm, rotate, flip, pen, arrow, line, rectangle, circle, text with preset fonts, highlight, eraser |
 | **Tabs** | Each image opens in its own tab, with its own edits and undo. Rename it from the bar at the top |
 | **Privacy** | Blur and pixelate by box, rounded box, circle or brush, and redaction that truly replaces pixels. View and remove camera, location and author details |
-| **Remove background** | Automatic, on your PC, with Keep and Remove brushes to fix the result |
+| **Remove background** | Keep and Remove brushes. There's no AI in the release, and builds from source can add automatic removal |
 | **Compress and convert** | PNG, JPEG and WebP, by quality or to a target file size |
 | **Resize for** | Instagram, YouTube, LinkedIn, Facebook, wallpapers and more, always showing what would be cut |
 | **Many images** | Batch compress, resize, convert and rename, with a preview, cancel and undo |
@@ -38,7 +38,7 @@ dotnet test tests/PicKit.Tests
 dotnet test tests/PicKit.UiTests
 ```
 
-Background removal needs its model, which is too large for this repository. This downloads it and checks its hash:
+Releases contain no AI. Automatic background removal is an optional extra for development builds, and it needs a model that's too large for this repository and has an unclear licence ([details](docs/BACKGROUND-REMOVAL.md)). This downloads it and checks its hash:
 
 ```powershell
 .\tools\get-model.ps1
@@ -71,3 +71,7 @@ Some decisions are worth knowing:
 - **Explorer starts one process per selected file**, so later launches pass their file to the running PicKit before any UI starts.
 
 More detail: [background removal](docs/BACKGROUND-REMOVAL.md), [testing](docs/TESTING.md), [third-party notices](THIRD-PARTY-NOTICES.md).
+
+## Licence
+
+PicKit is open source under the [MIT License](LICENSE).

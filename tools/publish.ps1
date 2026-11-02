@@ -20,9 +20,9 @@ if ($LASTEXITCODE -ne 0) { throw 'Publish failed.' }
 # Debug symbols are only useful during development, and Skia's alone are 92 MB.
 Get-ChildItem $Output -Filter *.pdb | Remove-Item
 
-$model = Join-Path $Output 'models\isnet-general-use.onnx'
-if (-not (Test-Path $model)) {
-    Write-Warning 'The background removal model is not in this build. Run tools/get-model.ps1 and publish again.'
+# Release builds carry no background removal model. See docs/BACKGROUND-REMOVAL.md.
+if (Test-Path (Join-Path $Output 'models\isnet-general-use.onnx')) {
+    throw 'A release must not include the background removal model.'
 }
 
 $size = (Get-ChildItem $Output -Recurse | Measure-Object Length -Sum).Sum / 1MB

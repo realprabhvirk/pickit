@@ -1,5 +1,7 @@
 # Background removal model
 
+**Releases don't include this model.** PicKit ships with no AI, and the Remove BG tool offers its brushes alone. A release build refuses to finish if the model is in it. Everything below applies only to development builds that fetch the model with `tools/get-model.ps1`.
+
 PicKit runs background removal entirely on the user's PC. Nothing is uploaded, and no internet connection is needed once PicKit is installed.
 
 ## The model

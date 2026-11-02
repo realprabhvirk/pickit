@@ -15,7 +15,7 @@ PicKit uses the following software.
 
 ## Background removal model
 
-IS-Net general use, from [xuebinqin/DIS](https://github.com/xuebinqin/DIS). The repository's code is Apache 2.0. The licence of the trained weights is not explicitly stated, and the training dataset has its own terms. See [docs/BACKGROUND-REMOVAL.md](docs/BACKGROUND-REMOVAL.md) before distributing this commercially.
+Not included in releases. Development builds can fetch IS-Net general use, from [xuebinqin/DIS](https://github.com/xuebinqin/DIS). The repository's code is Apache 2.0. The licence of the trained weights is not explicitly stated, and the training dataset has its own terms, so don't redistribute it without checking them. See [docs/BACKGROUND-REMOVAL.md](docs/BACKGROUND-REMOVAL.md).
 
 ## Installer
 
