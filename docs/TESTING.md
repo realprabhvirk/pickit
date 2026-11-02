@@ -5,7 +5,7 @@
 | Suite | Tests | Covers |
 |---|---|---|
 | `tests/PicKit.Tests` | 399 | Resize, crop, compression, conversion, undo, rename, batch, metadata, clipboard formats, Explorer registration |
-| `tests/PicKit.UiTests` | 208 | The real window end to end: every tool, save flows, prompts, batch, rename, display scaling, accessibility names |
+| `tests/PicKit.UiTests` | 241 | The real window end to end: every tool, save flows, prompts, batch, rename, display scaling, accessibility names |
 
 The UI tests run off-screen, never take focus, and use an in-memory clipboard, so they can run while the PC is being used. Registry tests write only under a throwaway key.
 
@@ -80,17 +80,21 @@ These need a person, or a real install, and have **not** been done yet.
 - [ ] Click text, then press Delete: it goes in one press
 - [ ] Select tool: drag moves around a zoomed image, and both scroll bars work
 
-**Screenshots and the drop box**
+**Snipping and the ribbon**
 
-- [ ] Ctrl+Alt+S takes a screenshot, and the app in use keeps focus
+- [ ] Ctrl+Alt+S, pressed on the real keyboard, freezes and dims the screen
+- [ ] Dragging keeps that area, and Full screen keeps the whole monitor
+- [ ] Esc or right-click cancels, and the app in use keeps focus throughout
 - [ ] Win+Print Screen still works as normal
-- [ ] The screen under the mouse is captured when there are two monitors
+- [ ] With two monitors, the bar appears on the one under the mouse, and a snip can cross both
 - [ ] Click the notification: the screenshot is saved and opens in PicKit
 - [ ] Swipe it away, then open PicKit: the screenshot comes up first, with Save and Trash
 - [ ] Ignore it: same result
-- [ ] Drag an image onto the drop box from Chrome and Edge, including one inside a link
-- [ ] Drag an image onto the drop box from File Explorer
-- [ ] Drag the box to another edge, and it stays there after signing out
+- [ ] The ribbon opens on hover, closes when the pointer leaves, and clicks pass through around it
+- [ ] Drag an image onto the ribbon from Chrome and Edge, including one inside a link
+- [ ] Drag an image onto the ribbon from File Explorer
+- [ ] Drag the ribbon along the edge or to the other side, and it stays there after signing out
+- [ ] The ribbon steps aside for full-screen video
 - [ ] After signing out and in again, the hotkey works without opening PicKit
 - [ ] Space + drag and middle-button drag pan
 - [ ] Drawing with a pen tablet feels smooth

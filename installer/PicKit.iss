@@ -2,7 +2,7 @@
 ; user's own profile is touched. Build with tools/build-installer.ps1.
 
 #define AppName "PicKit"
-#define AppVersion "1.1.0"
+#define AppVersion "1.2.0"
 #define Publisher "PicKit"
 #define PublishDir GetEnv("LOCALAPPDATA") + "\PicKit-build\publish"
 #define OutputFolder GetEnv("LOCALAPPDATA") + "\PicKit-build\installer"
@@ -37,7 +37,7 @@ RestartApplications=no
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "background"; Description: "Keep PicKit running, for Ctrl+Alt+S screenshots and the drop box"
+Name: "background"; Description: "Keep PicKit running, for Ctrl+Alt+S snips and the ribbon"
 Name: "explorermenu"; Description: "Show PicKit when right-clicking images in File Explorer"
 Name: "openwith"; Description: "List PicKit under ""Open with"" for image files"; Flags: unchecked
 Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked

@@ -11,12 +11,12 @@ namespace PicKit.Core.Background;
 /// </summary>
 public sealed class BackgroundSettings
 {
-    public bool ShowDropBox { get; set; } = true;
+    public bool ShowRibbon { get; set; } = true;
 
-    /// <summary>Where the drop box sits, in screen pixels, or null for the default spot.</summary>
-    public int? DropBoxLeft { get; set; }
+    public bool RibbonOnLeft { get; set; }
 
-    public int? DropBoxTop { get; set; }
+    /// <summary>How far down the screen edge the ribbon sits, from 0 to 1.</summary>
+    public double RibbonPosition { get; set; } = 0.6;
 
     /// <summary>Where saved screenshots go, or null for the default folder.</summary>
     public string? SaveFolder { get; set; }

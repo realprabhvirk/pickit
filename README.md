@@ -18,8 +18,8 @@ No accounts, no cloud, no projects, no library. Everything happens on your PC, a
 | **Many images** | Batch compress, resize, convert and rename, with a preview, cancel and undo |
 | **Clipboard** | Copy without saving, and paste screenshots straight in |
 | **File Explorer** | Right-click images, or use Open with |
-| **Screenshots** | Ctrl+Alt+S captures the screen under the mouse with no sound, flash or clipboard change. Save it, edit it or trash it |
-| **Drop box** | A tiny box at the edge of the screen. Drag an image onto it from a web page or File Explorer to start editing |
+| **Snipping** | Ctrl+Alt+S freezes the screen, like Snip & Sketch. Drag over any part or take it all, with no sound or clipboard change. Save it, edit it or trash it |
+| **Ribbon** | A thin strip on the edge of the screen that opens when pointed at. Drop an image on it from a web page or File Explorer, or start a snip |
 
 Originals are safe by design. Files are written to a temporary name and swapped in only when complete, replacing a file always asks first, and batch jobs never overwrite anything.
 

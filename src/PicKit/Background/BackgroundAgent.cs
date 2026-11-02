@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using PicKit.Core.Background;
 using PicKit.Core.Diagnostics;
 using PicKit.Core.Imaging;
@@ -26,18 +27,22 @@ internal sealed class BackgroundAgent : AgentWindow
     private readonly ImageInbox _inbox = new();
     private readonly BackgroundSettingsStore _settings = new();
     private readonly string _executable;
+    private readonly KeyChordWatcher _keys = new();
+    private readonly TriggerGate _gate = new();
     private readonly NotificationWindow _notification;
-    private readonly DropBoxWindow? _dropBox;
+    private readonly SnipOverlay _overlay;
+    private readonly EdgeRibbonWindow? _ribbon;
 
     private BackgroundAgent(string executable)
         : base(Native.WS_POPUP, Native.WS_EX_TOOLWINDOW)
     {
         _executable = executable;
         _notification = new NotificationWindow(TrimMemorySoon);
+        _overlay = new SnipOverlay(OnSnipped, TrimMemorySoon);
 
-        if (_settings.Load().ShowDropBox)
+        if (_settings.Load().ShowRibbon)
         {
-            _dropBox = new DropBoxWindow(_settings, () => Launch([]), OnDropped);
+            _ribbon = new EdgeRibbonWindow(_settings, () => Launch([]), () => StartSnip("the ribbon"), OnDropped);
         }
     }
 
@@ -56,6 +61,7 @@ internal sealed class BackgroundAgent : AgentWindow
         using var agent = new BackgroundAgent(executable);
 
         agent.RegisterHotkey();
+        agent.ListenToKeyboard();
         agent.WatchSignals(stop, capture);
         agent.TrimMemorySoon();
 
@@ -71,7 +77,8 @@ internal sealed class BackgroundAgent : AgentWindow
 
     public override void Dispose()
     {
-        _dropBox?.Dispose();
+        _ribbon?.Dispose();
+        _overlay.Dispose();
         _notification.Dispose();
         base.Dispose();
     }
@@ -81,8 +88,11 @@ internal sealed class BackgroundAgent : AgentWindow
         switch (message)
         {
             case Native.WM_HOTKEY:
-                TakeScreenshot();
+                StartSnip("the hotkey");
                 return 0;
+            case Native.WM_INPUT:
+                OnRawInput(lParam);
+                return base.OnMessage(message, wParam, lParam);
             case RunQueued:
                 while (_queue.TryDequeue(out var action))
                 {
@@ -90,9 +100,9 @@ internal sealed class BackgroundAgent : AgentWindow
                 }
 
                 return 0;
-            case Native.WM_DISPLAYCHANGE:
-                _dropBox?.PlaceOnScreen();
-                return 0;
+            case Native.WM_DISPLAYCHANGE or Native.WM_SETTINGCHANGE:
+                _ribbon?.PlaceOnScreen();
+                return base.OnMessage(message, wParam, lParam);
             default:
                 return base.OnMessage(message, wParam, lParam);
         }
@@ -100,10 +110,11 @@ internal sealed class BackgroundAgent : AgentWindow
 
     private void RegisterHotkey()
     {
+        // Reserving it stops the keys also reaching the app in use. Raw input still sees them
+        // if another app got there first, so this failing isn't worth interrupting anyone for.
         if (!Native.RegisterHotKey(Handle, HotkeyId, Native.MOD_CONTROL | Native.MOD_ALT | Native.MOD_NOREPEAT, HotkeyLetter))
         {
             Log.Warn("Ctrl+Alt+S is already taken by another app");
-            _notification.Show("Ctrl+Alt+S isn't available", "Another app is using this shortcut,\nso PicKit can't take screenshots.", null, null);
         }
     }
 
@@ -114,7 +125,7 @@ internal sealed class BackgroundAgent : AgentWindow
             WaitHandle[] handles = [stop, capture];
             while (WaitHandle.WaitAny(handles) != 0)
             {
-                Post(TakeScreenshot);
+                Post(() => StartSnip("a request"));
             }
 
             Native.PostMessageW(Handle, Native.WM_CLOSE, 0, 0);
@@ -133,22 +144,75 @@ internal sealed class BackgroundAgent : AgentWindow
         Native.PostMessageW(Handle, RunQueued, 0, 0);
     }
 
-    /// <summary>The pixels are read at once, before anything on screen can change.</summary>
-    private void TakeScreenshot()
+    /// <summary>
+    /// Reads the keyboard directly as well as through the hotkey, because another app's keyboard
+    /// hook can swallow a real key press before Windows' hotkey system ever sees it.
+    /// </summary>
+    private void ListenToKeyboard()
     {
-        ImageBuffer image;
-        var time = DateTime.Now;
+        const ushort genericDesktop = 1;
+        const ushort keyboard = 6;
+        var device = new Native.RAWINPUTDEVICE
+        {
+            usUsagePage = genericDesktop,
+            usUsage = keyboard,
+            dwFlags = Native.RIDEV_INPUTSINK,
+            hwndTarget = Handle,
+        };
+
+        if (!Native.RegisterRawInputDevices([device], 1, Marshal.SizeOf<Native.RAWINPUTDEVICE>()))
+        {
+            Log.Warn($"Could not read the keyboard directly: error {Marshal.GetLastWin32Error()}");
+        }
+    }
+
+    private unsafe void OnRawInput(IntPtr input)
+    {
+        const uint bufferSize = 64;
+        var buffer = stackalloc byte[(int)bufferSize];
+        var size = bufferSize;
+        var headerSize = (uint)Marshal.SizeOf<Native.RAWINPUTHEADER>();
+        if (Native.GetRawInputData(input, Native.RID_INPUT, buffer, ref size, headerSize) == uint.MaxValue)
+        {
+            return;
+        }
+
+        if (((Native.RAWINPUTHEADER*)buffer)->dwType != Native.RIM_TYPEKEYBOARD)
+        {
+            return;
+        }
+
+        var key = (Native.RAWKEYBOARD*)(buffer + headerSize);
+        var isDown = (key->Flags & Native.RI_KEY_BREAK) == 0;
+        if (_keys.OnKey(key->VKey, isDown, Environment.TickCount64))
+        {
+            StartSnip("the keyboard");
+        }
+    }
+
+    /// <summary>The whole screen is read at once, before anything on it can change.</summary>
+    private void StartSnip(string source)
+    {
+        if (_overlay.IsOpen || !_gate.TryPass(Environment.TickCount64))
+        {
+            return;
+        }
+
+        Log.Info($"Snip started from {source}");
         try
         {
-            image = ScreenCapture.MonitorUnderCursor();
+            _overlay.Begin(ScreenCapture.Freeze());
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or ImageException)
         {
             Log.Warn("Could not capture the screen", ex);
             _notification.Show("Couldn't take that screenshot", "The screen wasn't available.", null, null);
-            return;
         }
+    }
 
+    private void OnSnipped(ImageBuffer image)
+    {
+        var time = DateTime.Now;
         var thumbnailHeight = NotificationWindow.ThumbnailHeight;
         _ = Task.Run(() => StoreScreenshot(image, time, thumbnailHeight));
     }
@@ -171,8 +235,9 @@ internal sealed class BackgroundAgent : AgentWindow
                 var (path, thumbnail) = Store(_inbox, image, time, thumbnailHeight);
                 Post(() => ShowScreenshot(path, thumbnail));
             }
-            catch (Exception ex) when (ex is ImageException or IOException or UnauthorizedAccessException)
+            catch (Exception ex)
             {
+                // This runs on a worker thread, where anything unhandled would vanish in silence.
                 Log.Warn("Could not store a screenshot", ex);
                 Post(() => _notification.Show("Couldn't save that screenshot", "Check there's space on this PC.", null, null));
             }

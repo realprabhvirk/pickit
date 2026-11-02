@@ -106,15 +106,15 @@
                 Margin="0,22,0,8"
                 Style="{StaticResource PanelHeading}"
                 Text="Screenshots" />
-            <CheckBox Content="Keep PicKit running, for Ctrl+Alt+S and the drop box" IsChecked="{Binding RunInBackground}" />
+            <CheckBox Content="Keep PicKit running, for Ctrl+Alt+S and the ribbon" IsChecked="{Binding RunInBackground}" />
             <CheckBox
-                Content="Show the drop box at the edge of the screen"
-                IsChecked="{Binding ShowDropBox}"
+                Content="Show the ribbon at the edge of the screen"
+                IsChecked="{Binding ShowRibbon}"
                 IsEnabled="{Binding RunInBackground}" />
             <TextBlock
                 Margin="0,4,0,10"
                 Style="{StaticResource BodyHint}"
-                Text="Ctrl+Alt+S captures the screen under your mouse. Windows that block capture, such as protected video, come out black." />
+                Text="Ctrl+Alt+S freezes the screen so you can drag over any part, or take it all with Full screen. Windows that block capture, such as protected video, come out black." />
             <TextBlock Style="{StaticResource FieldLabel}" Text="Save screenshots to" />
             <DockPanel>
                 <Button

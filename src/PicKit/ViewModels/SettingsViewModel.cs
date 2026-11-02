@@ -26,7 +26,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private bool _runInBackground;
 
     [ObservableProperty]
-    private bool _showDropBox;
+    private bool _showRibbon;
 
     [ObservableProperty]
     private string _saveFolder;
@@ -81,7 +81,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _backgroundControl = backgroundControl;
         _dialogs = dialogs;
         _runInBackground = shell.IsBackgroundRegistered;
-        _showDropBox = _backgroundSettings.Load().ShowDropBox;
+        _showRibbon = _backgroundSettings.Load().ShowRibbon;
         _saveFolder = _backgroundSettings.SaveFolder;
 
         var current = settings.Current;
@@ -140,9 +140,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
     }
 
-    partial void OnShowDropBoxChanged(bool value)
+    partial void OnShowRibbonChanged(bool value)
     {
-        _backgroundSettings.Update(settings => settings.ShowDropBox = value);
+        _backgroundSettings.Update(settings => settings.ShowRibbon = value);
         if (RunInBackground)
         {
             _backgroundControl?.Restart();

@@ -8,17 +8,17 @@ namespace PicKit.Background;
 internal abstract class AgentWindow : IDisposable
 {
     private const string ClassName = "PicKit.Background";
-    private const string Title = "PicKit helper";
+    private const string DefaultTitle = "PicKit helper";
 
     private static readonly Native.WindowProcedure Procedure = Route;
     private static readonly Dictionary<IntPtr, AgentWindow> Windows = [];
     private static bool _isClassRegistered;
 
-    protected AgentWindow(int style, int extendedStyle)
+    protected AgentWindow(int style, int extendedStyle, string title = DefaultTitle)
     {
         RegisterClass();
         var instance = Native.GetModuleHandleW(null);
-        Handle = Native.CreateWindowExW(extendedStyle, ClassName, Title, style, 0, 0, 0, 0, 0, 0, instance, 0);
+        Handle = Native.CreateWindowExW(extendedStyle, ClassName, title, style, 0, 0, 0, 0, 0, 0, instance, 0);
         if (Handle == IntPtr.Zero)
         {
             throw new System.ComponentModel.Win32Exception();
@@ -158,6 +158,9 @@ internal sealed class LayeredSurface : IDisposable
         var blend = new Native.BLENDFUNCTION { SourceConstantAlpha = opacity, AlphaFormat = perPixelAlpha };
         Native.UpdateLayeredWindow(window, 0, ref position, ref size, _dc, ref origin, 0, ref blend, Native.ULW_ALPHA);
     }
+
+    /// <summary>Copies these pixels to a window, for one that isn't layered.</summary>
+    public void CopyTo(IntPtr target) => Native.BitBlt(target, 0, 0, Width, Height, _dc, 0, 0, Native.SRCCOPY);
 
     public void Dispose()
     {

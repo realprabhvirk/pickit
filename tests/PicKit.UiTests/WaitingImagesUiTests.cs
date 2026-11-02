@@ -344,14 +344,14 @@ public class BackgroundSettingsUiTests
         }));
 
     [Fact]
-    public void Hiding_the_drop_box_is_saved_and_applied_to_a_running_helper() => UiHarness.Run(harness =>
+    public void Hiding_the_ribbon_is_saved_and_applied_to_a_running_helper() => UiHarness.Run(harness =>
         WithSettings(harness, (settings, control, _, store) =>
         {
             settings.RunInBackground = true;
 
-            settings.ShowDropBox = false;
+            settings.ShowRibbon = false;
 
-            Assert.False(store.Load().ShowDropBox);
+            Assert.False(store.Load().ShowRibbon);
             Assert.Equal(1, control.Restarts);
         }));
 

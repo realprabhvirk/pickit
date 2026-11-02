@@ -68,24 +68,6 @@ public class BackgroundPartsTests
         Assert.Equal(SKColors.SteelBlue, bitmap.GetPixel(60, height / 2));
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void The_drop_box_draws_as_a_picture(bool isHighlighted)
-    {
-        const int scale = 3;
-        var size = DropBoxWindow.SizeDip * scale;
-
-        using var bitmap = new SKBitmap(new SKImageInfo(size, size, SKColorType.Bgra8888, SKAlphaType.Premul));
-        using (var canvas = new SKCanvas(bitmap))
-        {
-            DropBoxWindow.Paint(canvas, size, scale, isHighlighted);
-        }
-
-        Save(bitmap, isHighlighted ? "dropbox-hover.png" : "dropbox.png");
-        Assert.Equal(0, bitmap.GetPixel(0, 0).Alpha);
-    }
-
     [Fact]
     public void The_drop_target_is_reachable_from_windows_as_the_real_interface()
     {
@@ -219,10 +201,12 @@ public class BackgroundPartsTests
         try
         {
             // Held in memory for this check alone, and never written anywhere.
-            using var image = ScreenCapture.MonitorUnderCursor();
+            var screen = ScreenCapture.Freeze();
+            using var image = screen.Image;
 
             Assert.True(image.Width >= 640 && image.Height >= 480);
             Assert.False(image.HasTransparency());
+            Assert.True(screen.Monitor.Width > 0 && screen.Monitor.Right <= image.Width && screen.Monitor.Bottom <= image.Height);
         }
         catch (System.ComponentModel.Win32Exception)
         {

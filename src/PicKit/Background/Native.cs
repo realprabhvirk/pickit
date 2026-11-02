@@ -9,7 +9,12 @@ namespace PicKit.Background;
 internal static class Native
 {
     public const uint WM_DESTROY = 0x0002;
+    public const uint WM_PAINT = 0x000F;
     public const uint WM_CLOSE = 0x0010;
+    public const uint WM_ERASEBKGND = 0x0014;
+    public const uint WM_SETTINGCHANGE = 0x001A;
+    public const uint WM_SETCURSOR = 0x0020;
+    public const uint WM_INPUT = 0x00FF;
     public const uint WM_MOUSEACTIVATE = 0x0021;
     public const uint WM_DISPLAYCHANGE = 0x007E;
     public const uint WM_HOTKEY = 0x0312;
@@ -37,6 +42,22 @@ internal static class Native
     public const uint MF_STRING = 0;
     public const int ASFW_ANY = -1;
     public const int IDC_ARROW = 32512;
+    public const int IDC_CROSS = 32515;
+    public const int SM_XVIRTUALSCREEN = 76;
+    public const int SM_YVIRTUALSCREEN = 77;
+    public const int SM_CXVIRTUALSCREEN = 78;
+    public const int SM_CYVIRTUALSCREEN = 79;
+    public const uint SWP_NOACTIVATE = 0x0010;
+    public const uint SWP_SHOWWINDOW = 0x0040;
+    public const uint ABM_NEW = 0;
+    public const uint ABM_REMOVE = 1;
+    public const int ABN_FULLSCREENAPP = 2;
+    public const uint RIDEV_INPUTSINK = 0x00000100;
+    public const uint RID_INPUT = 0x10000003;
+    public const uint RIM_TYPEKEYBOARD = 1;
+    public const ushort RI_KEY_BREAK = 1;
+
+    public static readonly IntPtr HWND_TOPMOST = -1;
 
     public const int WS_POPUP = unchecked((int)0x80000000);
     public const int WS_EX_TOPMOST = 0x00000008;
@@ -108,6 +129,59 @@ internal static class Native
         public string? lpszMenuName;
         public string lpszClassName;
         public IntPtr hIconSm;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct PAINTSTRUCT
+    {
+        public IntPtr hdc;
+        public int fErase;
+        public RECT rcPaint;
+        public int fRestore;
+        public int fIncUpdate;
+
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)]
+        public byte[] rgbReserved;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct APPBARDATA
+    {
+        public int cbSize;
+        public IntPtr hWnd;
+        public uint uCallbackMessage;
+        public uint uEdge;
+        public RECT rc;
+        public IntPtr lParam;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RAWINPUTDEVICE
+    {
+        public ushort usUsagePage;
+        public ushort usUsage;
+        public uint dwFlags;
+        public IntPtr hwndTarget;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RAWINPUTHEADER
+    {
+        public uint dwType;
+        public uint dwSize;
+        public IntPtr hDevice;
+        public IntPtr wParam;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RAWKEYBOARD
+    {
+        public ushort MakeCode;
+        public ushort Flags;
+        public ushort Reserved;
+        public ushort VKey;
+        public uint Message;
+        public uint ExtraInformation;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -271,6 +345,50 @@ internal static class Native
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool SetWindowDisplayAffinity(IntPtr window, uint affinity);
+
+    [DllImport("user32.dll")]
+    public static extern int GetSystemMetrics(int index);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int width, int height, uint flags);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr BeginPaint(IntPtr window, out PAINTSTRUCT paint);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool EndPaint(IntPtr window, ref PAINTSTRUCT paint);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool InvalidateRect(IntPtr window, IntPtr rect, [MarshalAs(UnmanagedType.Bool)] bool erase);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr SetCursor(IntPtr cursor);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool RegisterRawInputDevices(RAWINPUTDEVICE[] devices, uint count, int size);
+
+    [DllImport("user32.dll")]
+    public static extern unsafe uint GetRawInputData(IntPtr input, uint command, void* data, ref uint size, uint headerSize);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern uint RegisterWindowMessageW(string name);
+
+    [DllImport("shell32.dll")]
+    public static extern UIntPtr SHAppBarMessage(uint message, ref APPBARDATA data);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetWindowRect(IntPtr window, out RECT area);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int GetClassNameW(IntPtr window, System.Text.StringBuilder name, int capacity);
 
     [DllImport("user32.dll")]
     public static extern IntPtr SetCapture(IntPtr window);

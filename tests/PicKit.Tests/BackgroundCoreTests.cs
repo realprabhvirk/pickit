@@ -246,15 +246,15 @@ public class ImageFetcherTests
 public class BackgroundSettingsTests
 {
     [Fact]
-    public void The_drop_box_shows_by_default_and_a_change_persists()
+    public void The_ribbon_shows_by_default_and_a_change_persists()
     {
         var path = Path.Combine(TestImages.TempFolder(), "background.json");
         var store = new BackgroundSettingsStore(path);
-        Assert.True(store.Load().ShowDropBox);
+        Assert.True(store.Load().ShowRibbon);
 
-        store.Update(settings => settings.ShowDropBox = false);
+        store.Update(settings => settings.ShowRibbon = false);
 
-        Assert.False(new BackgroundSettingsStore(path).Load().ShowDropBox);
+        Assert.False(new BackgroundSettingsStore(path).Load().ShowRibbon);
     }
 
     [Fact]
@@ -265,10 +265,10 @@ public class BackgroundSettingsTests
         var helper = new BackgroundSettingsStore(path);
 
         app.Update(settings => settings.SaveFolder = "D:\\Shots");
-        helper.Update(settings => settings.DropBoxLeft = 40);
+        helper.Update(settings => settings.RibbonOnLeft = true);
 
         Assert.Equal("D:\\Shots", app.Load().SaveFolder);
-        Assert.Equal(40, app.Load().DropBoxLeft);
+        Assert.True(app.Load().RibbonOnLeft);
     }
 
     [Fact]
@@ -286,7 +286,7 @@ public class BackgroundSettingsTests
         var path = Path.Combine(TestImages.TempFolder(), "background.json");
         File.WriteAllText(path, "{ not json");
 
-        Assert.True(new BackgroundSettingsStore(path).Load().ShowDropBox);
+        Assert.True(new BackgroundSettingsStore(path).Load().ShowRibbon);
     }
 }
 
