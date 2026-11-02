@@ -2,6 +2,7 @@
     x:Class="PicKit.Views.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:batch="clr-namespace:PicKit.Core.Batch;assembly=PicKit.Core"
     xmlns:controls="clr-namespace:PicKit.Controls"
     xmlns:vm="clr-namespace:PicKit.ViewModels"
     Title="{Binding WindowTitle}"
@@ -29,6 +30,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
@@ -60,9 +62,9 @@
                         Width="1"
                         Margin="8,6"
                         Fill="{DynamicResource DividerStrokeColorDefaultBrush}"
-                        Visibility="{Binding HasImage, Converter={StaticResource BooleanToVisibility}}" />
+                        Visibility="{Binding ShowsEditorCommands, Converter={StaticResource BooleanToVisibility}}" />
 
-                    <StackPanel Orientation="Horizontal" Visibility="{Binding HasImage, Converter={StaticResource BooleanToVisibility}}">
+                    <StackPanel Orientation="Horizontal" Visibility="{Binding ShowsEditorCommands, Converter={StaticResource BooleanToVisibility}}">
                         <RadioButton
                             Content="Edit"
                             GroupName="EditorTabs"
@@ -87,12 +89,13 @@
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     Text="{Binding FileName}"
-                    TextTrimming="CharacterEllipsis" />
+                    TextTrimming="CharacterEllipsis"
+                    Visibility="{Binding ShowsEditorCommands, Converter={StaticResource BooleanToVisibility}}" />
 
                 <StackPanel
                     Grid.Column="2"
                     Orientation="Horizontal"
-                    Visibility="{Binding HasImage, Converter={StaticResource BooleanToVisibility}}">
+                    Visibility="{Binding ShowsEditorCommands, Converter={StaticResource BooleanToVisibility}}">
                     <Button
                         AutomationProperties.Name="Undo"
                         Command="{Binding Editor.UndoCommand}"
@@ -349,9 +352,64 @@
             </Border>
         </Grid>
 
-        <!--  Status bar  -->
+        <!--  A batch or rename job takes over the body of the window  -->
+        <Border
+            Grid.Row="1"
+            Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+            Visibility="{Binding HasPage, Converter={StaticResource BooleanToVisibility}}">
+            <ContentControl Content="{Binding Page}" Focusable="False" />
+        </Border>
+
+        <!--  Shown when several images are open  -->
         <Border
             Grid.Row="2"
+            Padding="8,4"
+            BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+            BorderThickness="0,1,0,0"
+            Visibility="{Binding HasMultipleImages, Converter={StaticResource BooleanToVisibility}}">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button
+                        Margin="6,0,0,0"
+                        Command="{Binding BatchAllCommand}"
+                        CommandParameter="{x:Static batch:BatchOperation.Compress}"
+                        Content="Compress all" />
+                    <Button
+                        Margin="6,0,0,0"
+                        Command="{Binding BatchAllCommand}"
+                        CommandParameter="{x:Static batch:BatchOperation.Resize}"
+                        Content="Resize all" />
+                    <Button
+                        Margin="6,0,0,0"
+                        Command="{Binding BatchAllCommand}"
+                        CommandParameter="{x:Static batch:BatchOperation.Convert}"
+                        Content="Convert all" />
+                    <Button
+                        Margin="6,0,0,0"
+                        Command="{Binding RenameAllCommand}"
+                        Content="Rename all" />
+                </StackPanel>
+                <ListBox
+                    AutomationProperties.Name="Open images"
+                    DisplayMemberPath="Name"
+                    ItemContainerStyle="{StaticResource ChipItem}"
+                    ItemsSource="{Binding OpenImages}"
+                    ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                    ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                    SelectedItem="{Binding SelectedImage}"
+                    Style="{StaticResource PlainList}">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
+        <!--  Status bar  -->
+        <Border
+            Grid.Row="3"
             Padding="12,2"
             BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
             BorderThickness="0,1,0,0">

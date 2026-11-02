@@ -138,6 +138,9 @@ public sealed class EditorDocument : IDisposable
         _savedRevision = History.Revision;
     }
 
+    /// <summary>Follows the file after a rename. The picture itself is unaffected.</summary>
+    public void UpdateSourcePath(string path) => Source = Source with { Path = path };
+
     /// <summary>The picture as exported: pixels with all markup burned in. The caller owns the result.</summary>
     public ImageBuffer RenderFlattened()
     {

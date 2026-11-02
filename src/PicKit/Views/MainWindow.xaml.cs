@@ -40,6 +40,7 @@ public partial class MainWindow : Window
         base.OnClosing(e);
         if (_closeConfirmed || !_viewModel.HasUnsavedChanges)
         {
+            _viewModel.CancelBackgroundWork();
             SavePlacement();
             return;
         }

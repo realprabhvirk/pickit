@@ -21,6 +21,8 @@ internal sealed class ScriptedDialogs : DialogService
 
     public string? SavePath { get; set; }
 
+    public string? FolderPath { get; set; }
+
     public SKColor? BackgroundAnswer { get; set; } = SKColors.White;
 
     public override void ShowError(string title, string message, string? details = null, string closeLabel = "OK") =>
@@ -39,6 +41,8 @@ internal sealed class ScriptedDialogs : DialogService
     }
 
     public override string? PickSavePath(string suggestedPath, ImageFormat format) => SavePath;
+
+    public override string? PickFolder() => FolderPath;
 
     public override SKColor? ChooseBackground(SKColor initial)
     {

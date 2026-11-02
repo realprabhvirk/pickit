@@ -92,6 +92,12 @@ public class DialogService
         return dialog.ShowDialog(ActiveWindow()) == true ? dialog.FileName : null;
     }
 
+    public virtual string? PickFolder()
+    {
+        var dialog = new OpenFolderDialog { Title = "Choose a folder for the new images" };
+        return dialog.ShowDialog(ActiveWindow()) == true ? dialog.FolderName : null;
+    }
+
     /// <summary>Colour to put behind transparent pixels, or null if the user cancelled.</summary>
     public virtual SKColor? ChooseBackground(SKColor initial)
     {

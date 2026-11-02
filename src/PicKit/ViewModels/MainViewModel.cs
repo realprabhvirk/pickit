@@ -1,6 +1,8 @@
+using System.Collections.ObjectModel;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using PicKit.Core.Batch;
 using PicKit.Core.Diagnostics;
 using PicKit.Core.Documents;
 using PicKit.Core.Files;
@@ -12,6 +14,12 @@ using SkiaSharp;
 
 namespace PicKit.ViewModels;
 
+/// <summary>One image in the strip shown when several are open.</summary>
+public sealed record OpenImage(string Path)
+{
+    public string Name => System.IO.Path.GetFileName(Path);
+}
+
 public sealed partial class MainViewModel : ObservableObject
 {
     private static readonly TimeSpan NoticeDuration = TimeSpan.FromSeconds(2.5);
@@ -21,6 +29,7 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly DocumentSaver _saver;
     private readonly ClipboardService _clipboard;
     private CancellationTokenSource? _noticeTimer;
+    private bool _isSyncingSelection;
 
     [ObservableProperty]
     private bool _isLoading;
@@ -30,6 +39,15 @@ public sealed partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private string? _noticeText;
+
+    /// <summary>A full-window job, such as a batch or rename, shown over the editor.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPage))]
+    [NotifyPropertyChangedFor(nameof(ShowsEditorCommands))]
+    private ObservableObject? _page;
+
+    [ObservableProperty]
+    private OpenImage? _selectedImage;
 
     public MainViewModel(SettingsStore settings, DialogService dialogs, ClipboardService clipboard)
     {
@@ -47,6 +65,18 @@ public sealed partial class MainViewModel : ObservableObject
     public EditorViewModel Editor { get; }
 
     public bool HasImage => Editor.Document is not null;
+
+    public bool HasPage => Page is not null;
+
+    /// <summary>Editing commands are hidden while a batch or rename job covers the editor.</summary>
+    public bool ShowsEditorCommands => HasImage && !HasPage;
+
+    public ObservableCollection<OpenImage> OpenImages { get; } = [];
+
+    public bool HasMultipleImages => OpenImages.Count > 1;
+
+    /// <summary>Where the last rename is remembered. Replaced in tests.</summary>
+    public string? RenameHistoryPath { get; init; }
 
     public string WindowTitle
     {
@@ -102,13 +132,7 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
-    public void OpenPaths(IReadOnlyList<string> paths)
-    {
-        if (paths.Count > 0)
-        {
-            _ = OpenAsync(paths[0]);
-        }
-    }
+    public void OpenPaths(IReadOnlyList<string> paths) => Handle(new LaunchRequest(ShellAction.Open, paths));
 
     /// <summary>Carries out what Explorer or the command line asked for, and brings the window forward.</summary>
     public void Handle(LaunchRequest request)
@@ -116,18 +140,18 @@ public sealed partial class MainViewModel : ObservableObject
         ActivationRequested?.Invoke();
 
         var images = ImagePaths.Expand(request.Paths);
-        var missing = request.Paths.Count > 0 && images.Count == 0;
-        if (missing)
+        if (request.Paths.Count > 0 && images.Count == 0)
         {
             ShowNotice("That file isn't an image PicKit can open");
-            return;
         }
-
-        if (images.Count > 0)
+        else if (images.Count > 0)
         {
             _ = HandleAsync(request.Action, images);
         }
     }
+
+    /// <summary>Keeps Close safe while a batch is running.</summary>
+    public void CancelBackgroundWork() => (Page as BatchViewModel)?.CancelIfRunning();
 
     /// <summary>
     /// Deals with unsaved edits before they're lost. Returns false if the user wants to stay.
@@ -208,6 +232,8 @@ public sealed partial class MainViewModel : ObservableObject
         }
 
         await Editor.WaitUntilIdleAsync();
+        Page = null;
+        SetOpenImages([]);
         ShowDocument(new EditorDocument(image, new DocumentSource(null, ImageFormat.Png, 0)));
     }
 
@@ -274,14 +300,47 @@ public sealed partial class MainViewModel : ObservableObject
 
     private async Task HandleAsync(ShellAction action, IReadOnlyList<string> images)
     {
-        if (action == ShellAction.Copy)
+        switch (action)
         {
-            await CopyFileAsync(images[0]);
+            case ShellAction.Copy:
+                await CopyFileAsync(images[0]);
+                if (images.Count > 1)
+                {
+                    ShowNotice("Copied the first image. The clipboard holds one at a time");
+                }
+
+                return;
+
+            case ShellAction.Rename:
+                ShowRename(images);
+                return;
+
+            case ShellAction.Compress when images.Count > 1:
+                ShowBatch(images, BatchOperation.Compress);
+                return;
+
+            case ShellAction.Resize when images.Count > 1:
+                ShowBatch(images, BatchOperation.Resize);
+                return;
+
+            case ShellAction.Convert when images.Count > 1:
+                ShowBatch(images, BatchOperation.Convert);
+                return;
+        }
+
+        if (!await ResolveUnsavedChangesAsync())
+        {
             return;
         }
 
-        await OpenAsync(images[0]);
+        Page = null;
+        SetOpenImages(images);
+        await LoadAsync(images[0]);
+        ShowToolFor(action);
+    }
 
+    private void ShowToolFor(ShellAction action)
+    {
         switch (action)
         {
             case ShellAction.Compress:
@@ -298,6 +357,87 @@ public sealed partial class MainViewModel : ObservableObject
                 break;
         }
     }
+
+    private void SetOpenImages(IReadOnlyList<string> images)
+    {
+        OpenImages.Clear();
+        foreach (var path in images)
+        {
+            OpenImages.Add(new OpenImage(path));
+        }
+
+        OnPropertyChanged(nameof(HasMultipleImages));
+        BatchAllCommand.NotifyCanExecuteChanged();
+        RenameAllCommand.NotifyCanExecuteChanged();
+
+        _isSyncingSelection = true;
+        SelectedImage = OpenImages.FirstOrDefault();
+        _isSyncingSelection = false;
+    }
+
+    private void ShowBatch(IReadOnlyList<string> images, BatchOperation operation) =>
+        Page = new BatchViewModel(images, operation, _settings, _dialogs, () => Page = null);
+
+    private void ShowRename(IReadOnlyList<string> images) =>
+        Page = new RenameViewModel(images, () => Page = null, OnFilesRenamed, RenameHistoryPath);
+
+    /// <summary>Keeps the open image and the strip pointing at files that just changed name.</summary>
+    private void OnFilesRenamed(IReadOnlyList<RenamedFile> files)
+    {
+        for (var i = 0; i < OpenImages.Count; i++)
+        {
+            if (files.FirstOrDefault(file => file.From == OpenImages[i].Path) is { } match)
+            {
+                var wasSelected = ReferenceEquals(SelectedImage, OpenImages[i]);
+                _isSyncingSelection = true;
+                OpenImages[i] = new OpenImage(match.To);
+                if (wasSelected)
+                {
+                    SelectedImage = OpenImages[i];
+                }
+
+                _isSyncingSelection = false;
+            }
+        }
+
+        if (Editor.Document is { Source.Path: { } path } document
+            && files.FirstOrDefault(file => file.From == path) is { } renamed)
+        {
+            document.UpdateSourcePath(renamed.To);
+            RefreshDocumentText();
+        }
+    }
+
+    partial void OnSelectedImageChanged(OpenImage? oldValue, OpenImage? newValue)
+    {
+        if (!_isSyncingSelection && newValue is not null && newValue.Path != Editor.Document?.Source.Path)
+        {
+            _ = SwitchImageAsync(oldValue, newValue);
+        }
+    }
+
+    private async Task SwitchImageAsync(OpenImage? previous, OpenImage next)
+    {
+        if (await ResolveUnsavedChangesAsync())
+        {
+            await LoadAsync(next.Path);
+        }
+        else
+        {
+            // The user chose to stay, so the strip goes back to the image still on screen.
+            _isSyncingSelection = true;
+            SelectedImage = previous;
+            _isSyncingSelection = false;
+        }
+    }
+
+    private bool CanRunOnAllImages() => HasMultipleImages;
+
+    [RelayCommand(CanExecute = nameof(CanRunOnAllImages))]
+    private void BatchAll(BatchOperation operation) => ShowBatch(OpenImages.Select(image => image.Path).ToList(), operation);
+
+    [RelayCommand(CanExecute = nameof(CanRunOnAllImages))]
+    private void RenameAll() => ShowRename(OpenImages.Select(image => image.Path).ToList());
 
     private void ShowTool(EditorTab tab, ToolViewModel tool)
     {
@@ -336,14 +476,6 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
-    private async Task OpenAsync(string path)
-    {
-        if (await ResolveUnsavedChangesAsync())
-        {
-            await LoadAsync(path);
-        }
-    }
-
     private async Task LoadAsync(string path)
     {
         IsLoading = true;
@@ -378,6 +510,7 @@ public sealed partial class MainViewModel : ObservableObject
     private void RefreshDocumentText()
     {
         OnPropertyChanged(nameof(HasImage));
+        OnPropertyChanged(nameof(ShowsEditorCommands));
         OnPropertyChanged(nameof(WindowTitle));
         OnPropertyChanged(nameof(FileName));
         OnPropertyChanged(nameof(StatusText));

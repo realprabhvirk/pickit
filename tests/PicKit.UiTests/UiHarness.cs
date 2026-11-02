@@ -148,7 +148,7 @@ internal sealed class UiHarness : IDisposable
 
         var dialogs = new ScriptedDialogs();
         var clipboard = new FakeClipboard();
-        var viewModel = new MainViewModel(settings, dialogs, clipboard);
+        var viewModel = new MainViewModel(settings, dialogs, clipboard) { RenameHistoryPath = Path.Combine(folder, ".rename-history.json") };
         var window = new MainWindow(viewModel, settings)
         {
             ShowActivated = false,
