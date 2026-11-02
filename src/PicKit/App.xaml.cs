@@ -25,6 +25,9 @@ public partial class App : Application
     private MainViewModel? _viewModel;
     private bool _hasHandledFirstRequest;
 
+    /// <summary>WPF runs startup by itself, so the UI tests need a way to keep this window closed.</summary>
+    public bool OpensMainWindow { get; init; } = true;
+
     public App(LaunchInbox inbox)
     {
         _inbox = inbox;
@@ -38,6 +41,11 @@ public partial class App : Application
         base.OnStartup(e);
 
         ImageDecoder.PlatformDecoder = WicDecoder.TryDecode;
+        if (!OpensMainWindow)
+        {
+            return;
+        }
+
         _settings = new SettingsStore();
         if (_settings.Current.Appearance != AppAppearance.System)
         {

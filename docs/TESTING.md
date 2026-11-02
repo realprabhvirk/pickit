@@ -5,7 +5,7 @@
 | Suite | Tests | Covers |
 |---|---|---|
 | `tests/PicKit.Tests` | 331 | Resize, crop, compression, conversion, undo, rename, batch, metadata, clipboard formats, Explorer registration |
-| `tests/PicKit.UiTests` | 137 | The real window end to end: every tool, save flows, prompts, batch, rename, display scaling, accessibility names |
+| `tests/PicKit.UiTests` | 139 | The real window end to end: every tool, save flows, prompts, batch, rename, display scaling, accessibility names |
 
 The UI tests run off-screen, never take focus, and use an in-memory clipboard, so they can run while the PC is being used. Registry tests write only under a throwaway key.
 

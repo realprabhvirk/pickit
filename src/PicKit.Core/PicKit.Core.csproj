@@ -17,4 +17,9 @@
     <PackageReference Include="SkiaSharp" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="PicKit.Tests" />
+    <InternalsVisibleTo Include="PicKit.UiTests" />
+  </ItemGroup>
+
 </Project>
