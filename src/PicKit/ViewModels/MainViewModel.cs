@@ -28,6 +28,7 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly DialogService _dialogs;
     private readonly DocumentSaver _saver;
     private readonly ClipboardService _clipboard;
+    private readonly RecentFiles _recent;
     private CancellationTokenSource? _noticeTimer;
     private bool _isSyncingSelection;
 
@@ -49,11 +50,13 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private OpenImage? _selectedImage;
 
-    public MainViewModel(SettingsStore settings, DialogService dialogs, ClipboardService clipboard)
+    public MainViewModel(SettingsStore settings, DialogService dialogs, ClipboardService clipboard, RecentFiles? recent = null)
     {
         _settings = settings;
         _dialogs = dialogs;
         _clipboard = clipboard;
+        _recent = recent ?? new RecentFiles();
+        RefreshRecent();
         _saver = new DocumentSaver(settings, dialogs);
         Editor = new EditorViewModel(dialogs, _saver);
         Editor.DocumentContentChanged += RefreshDocumentText;
@@ -72,6 +75,10 @@ public sealed partial class MainViewModel : ObservableObject
     public bool ShowsEditorCommands => HasImage && !HasPage;
 
     public ObservableCollection<OpenImage> OpenImages { get; } = [];
+
+    public ObservableCollection<OpenImage> RecentImages { get; } = [];
+
+    public bool HasRecentImages => RecentImages.Count > 0;
 
     public bool HasMultipleImages => OpenImages.Count > 1;
 
@@ -149,6 +156,24 @@ public sealed partial class MainViewModel : ObservableObject
             _ = HandleAsync(request.Action, images);
         }
     }
+
+    public void RememberRecent(string path)
+    {
+        _recent.Add(path);
+        RefreshRecent();
+    }
+
+    public void ClearRecent()
+    {
+        _recent.Clear();
+        RefreshRecent();
+    }
+
+    public SettingsViewModel CreateSettings() => new(
+        _settings,
+        _recent,
+        ShellRegistration.ForCurrentUser(Environment.ProcessPath!),
+        RefreshRecent);
 
     /// <summary>Keeps Close safe while a batch is running.</summary>
     public void CancelBackgroundWork() => (Page as BatchViewModel)?.CancelIfRunning();
@@ -292,6 +317,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     private void ShowDocument(EditorDocument document)
     {
+        App.EnsurePanelsLoaded();
         var previous = Editor.Document;
         Editor.Document = document;
         previous?.Dispose();
@@ -339,6 +365,20 @@ public sealed partial class MainViewModel : ObservableObject
         ShowToolFor(action);
     }
 
+    private void RefreshRecent()
+    {
+        RecentImages.Clear();
+        foreach (var path in _recent.Existing)
+        {
+            RecentImages.Add(new OpenImage(path));
+        }
+
+        OnPropertyChanged(nameof(HasRecentImages));
+    }
+
+    [RelayCommand]
+    private void OpenRecent(OpenImage image) => OpenPaths([image.Path]);
+
     private void ShowToolFor(ShellAction action)
     {
         switch (action)
@@ -375,11 +415,17 @@ public sealed partial class MainViewModel : ObservableObject
         _isSyncingSelection = false;
     }
 
-    private void ShowBatch(IReadOnlyList<string> images, BatchOperation operation) =>
+    private void ShowBatch(IReadOnlyList<string> images, BatchOperation operation)
+    {
+        App.EnsurePanelsLoaded();
         Page = new BatchViewModel(images, operation, _settings, _dialogs, () => Page = null);
+    }
 
-    private void ShowRename(IReadOnlyList<string> images) =>
+    private void ShowRename(IReadOnlyList<string> images)
+    {
+        App.EnsurePanelsLoaded();
         Page = new RenameViewModel(images, () => Page = null, OnFilesRenamed, RenameHistoryPath);
+    }
 
     /// <summary>Keeps the open image and the strip pointing at files that just changed name.</summary>
     private void OnFilesRenamed(IReadOnlyList<RenamedFile> files)
@@ -488,6 +534,7 @@ public sealed partial class MainViewModel : ObservableObject
             await Editor.WaitUntilIdleAsync();
 
             ShowDocument(new EditorDocument(decoded.Pixels, source));
+            RememberRecent(path);
 
             if (decoded.IsIncomplete)
             {

@@ -45,7 +45,7 @@ public sealed class ImageCanvas : FrameworkElement
     private static readonly double[] ZoomStops =
         [0.05, 0.1, 0.25, 0.33, 0.5, 0.67, 0.75, 1, 1.5, 2, 3, 4, 6, 8, 12, 16, 32];
 
-    private readonly Checkerboard _checkerboard = new(8, new SKColor(0xFF, 0xFF, 0xFF), new SKColor(0xE3, 0xE3, 0xE3));
+    private Checkerboard? _checkerboard;
     private WriteableBitmap? _surface;
     private DisplayPyramid? _pyramid;
     private bool _isPanning;
@@ -102,6 +102,12 @@ public sealed class ImageCanvas : FrameworkElement
 
     protected override void OnRender(DrawingContext drawingContext)
     {
+        // Until an image is open there's nothing to draw, so the window paints without Skia.
+        if (Image is null)
+        {
+            return;
+        }
+
         var scale = VisualTreeHelper.GetDpi(this);
         var pixelWidth = (int)Math.Round(ActualWidth * scale.DpiScaleX);
         var pixelHeight = (int)Math.Round(ActualHeight * scale.DpiScaleY);
@@ -262,6 +268,7 @@ public sealed class ImageCanvas : FrameworkElement
         }
 
         var bounds = View.ImageToView(new SKRect(0, 0, image.Width, image.Height));
+        _checkerboard ??= new Checkerboard(8, new SKColor(0xFF, 0xFF, 0xFF), new SKColor(0xE3, 0xE3, 0xE3));
         _checkerboard.Draw(canvas, bounds);
 
         var source = _pyramid?.ForZoom(View.Zoom) ?? image;

@@ -14,6 +14,7 @@ namespace PicKit.ViewModels.Tools;
 public sealed partial class PresetToolViewModel : ToolViewModel
 {
     private readonly CropCanvasTool _cropGuide = new();
+    private IReadOnlyList<PresetGroup>? _groups;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanvasTool))]
@@ -25,17 +26,12 @@ public sealed partial class PresetToolViewModel : ToolViewModel
     public PresetToolViewModel(EditorViewModel editor)
         : base(editor)
     {
-        Groups = PresetCatalog.Load().Groups;
-
-        var destinations = new ListCollectionView(Groups.SelectMany(group => group.Presets).ToList());
-        destinations.GroupDescriptions.Add(new PropertyGroupDescription(nameof(PlatformPreset.Group)));
-        Destinations = destinations;
     }
 
-    public IReadOnlyList<PresetGroup> Groups { get; }
+    public IReadOnlyList<PresetGroup> Groups => _groups ??= PresetCatalog.Load().Groups;
 
-    /// <summary>A single grouped list, so only one destination can ever be selected.</summary>
-    public ICollectionView Destinations { get; }
+    /// <summary>A single grouped list, so only one destination can ever be selected. Built on first use.</summary>
+    public ICollectionView? Destinations { get; private set; }
 
     public override string Name => "Resize for";
 
@@ -72,6 +68,13 @@ public sealed partial class PresetToolViewModel : ToolViewModel
     public override void Activate()
     {
         SelectedPreset = null;
+        if (Destinations is null)
+        {
+            var destinations = new ListCollectionView(Groups.SelectMany(group => group.Presets).ToList());
+            destinations.GroupDescriptions.Add(new PropertyGroupDescription(nameof(PlatformPreset.Group)));
+            Destinations = destinations;
+            OnPropertyChanged(nameof(Destinations));
+        }
     }
 
     public override void OnImageChanged() => ResetGuide();

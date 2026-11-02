@@ -23,13 +23,14 @@ internal sealed class UiHarness : IDisposable
 {
     private static readonly Lazy<Dispatcher> UiThread = new(StartUiThread);
 
-    private UiHarness(MainWindow window, MainViewModel viewModel, string folder, ScriptedDialogs dialogs, FakeClipboard clipboard)
+    private UiHarness(MainWindow window, MainViewModel viewModel, string folder, ScriptedDialogs dialogs, FakeClipboard clipboard, SettingsStore settings)
     {
         Window = window;
         ViewModel = viewModel;
         Folder = folder;
         Dialogs = dialogs;
         Clipboard = clipboard;
+        Settings = settings;
     }
 
     public MainWindow Window { get; }
@@ -39,6 +40,8 @@ internal sealed class UiHarness : IDisposable
     public ScriptedDialogs Dialogs { get; }
 
     public FakeClipboard Clipboard { get; }
+
+    public SettingsStore Settings { get; }
 
     /// <summary>A private folder for this test's files.</summary>
     public string Folder { get; }
@@ -148,7 +151,8 @@ internal sealed class UiHarness : IDisposable
 
         var dialogs = new ScriptedDialogs();
         var clipboard = new FakeClipboard();
-        var viewModel = new MainViewModel(settings, dialogs, clipboard) { RenameHistoryPath = Path.Combine(folder, ".rename-history.json") };
+        var recent = new RecentFiles(Path.Combine(folder, ".recent.json"));
+        var viewModel = new MainViewModel(settings, dialogs, clipboard, recent) { RenameHistoryPath = Path.Combine(folder, ".rename-history.json") };
         var window = new MainWindow(viewModel, settings)
         {
             ShowActivated = false,
@@ -161,7 +165,7 @@ internal sealed class UiHarness : IDisposable
         };
 
         window.Show();
-        var harness = new UiHarness(window, viewModel, folder, dialogs, clipboard);
+        var harness = new UiHarness(window, viewModel, folder, dialogs, clipboard, settings);
         harness.Pump();
         return harness;
     }

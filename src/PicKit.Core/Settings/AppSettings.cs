@@ -11,6 +11,13 @@ public enum MetadataHandling
     Keep,
 }
 
+public enum AppAppearance
+{
+    System,
+    Light,
+    Dark,
+}
+
 public sealed class WindowPlacementSettings
 {
     public double Left { get; set; }
@@ -30,9 +37,7 @@ public sealed class AppSettings
 
     public bool RememberWindow { get; set; } = true;
 
-    public bool RememberLastTool { get; set; }
-
-    public string? LastTool { get; set; }
+    public AppAppearance Appearance { get; set; } = AppAppearance.System;
 
     public int JpegQuality { get; set; } = 90;
 

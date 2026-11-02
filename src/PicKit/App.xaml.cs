@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Threading;
 using PicKit.Core.Diagnostics;
@@ -14,6 +15,8 @@ public partial class App : Application
 {
     /// <summary>Long enough for Explorer to finish starting one process per selected file.</summary>
     private static readonly TimeSpan GatherDelay = TimeSpan.FromMilliseconds(350);
+
+    private static bool _panelsLoaded;
 
     private readonly LaunchInbox _inbox;
     private DispatcherTimer? _gather;
@@ -33,10 +36,15 @@ public partial class App : Application
 
         ImageDecoder.PlatformDecoder = WicDecoder.TryDecode;
         _settings = new SettingsStore();
+        if (_settings.Current.Appearance != AppAppearance.System)
+        {
+            AppearanceService.Apply(_settings.Current.Appearance);
+        }
 
         _viewModel = new MainViewModel(_settings, new DialogService(), new ClipboardService());
         var window = new MainWindow(_viewModel, _settings);
         MainWindow = window;
+        window.ContentRendered += (_, _) => Log.Info($"First paint after {(DateTime.Now - Process.GetCurrentProcess().StartTime).TotalMilliseconds:0} ms");
         window.Show();
 
         _gather = new DispatcherTimer(DispatcherPriority.Normal, Dispatcher) { Interval = GatherDelay };
@@ -53,6 +61,20 @@ public partial class App : Application
         _settings?.Save();
         TempFiles.DeleteSessionFolder();
         base.OnExit(e);
+    }
+
+    /// <summary>Tool panels aren't needed until there's an image, so they don't slow the first paint.</summary>
+    public static void EnsurePanelsLoaded()
+    {
+        if (_panelsLoaded || Current is null)
+        {
+            return;
+        }
+
+        _panelsLoaded = true;
+        var dictionaries = Current.Resources.MergedDictionaries;
+        dictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/PicKit;component/Views/ToolPanels.xaml") });
+        dictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/PicKit;component/Views/Pages.xaml") });
     }
 
     private static void OnUnhandledUiException(object sender, DispatcherUnhandledExceptionEventArgs e)

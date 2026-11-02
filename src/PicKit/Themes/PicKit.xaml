@@ -19,8 +19,10 @@
         <Setter Property="HorizontalAlignment" Value="Center" />
     </Style>
 
+    <!-- The primary colour, softened. The theme's own secondary brush falls short of 4.5:1 at this size. -->
     <Style x:Key="SecondaryText" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+        <Setter Property="Opacity" Value="0.78" />
         <Setter Property="FontSize" Value="12" />
     </Style>
 
@@ -102,7 +104,7 @@
 
     <!-- Edit / Tools / Resize for: text tabs with a short accent underline, like Photos. -->
     <Style x:Key="PivotTab" TargetType="RadioButton" BasedOn="{x:Null}">
-        <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
         <Setter Property="Padding" Value="10,6,10,0" />
         <Setter Property="MinHeight" Value="32" />
         <Setter Property="FocusVisualStyle" Value="{StaticResource KeyboardFocus}" />
@@ -115,7 +117,11 @@
                                 <RowDefinition Height="*" />
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <ContentPresenter
+                                x:Name="Label"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Opacity="0.78" />
                             <Rectangle
                                 x:Name="Underline"
                                 Grid.Row="1"
@@ -131,7 +137,7 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="Underline" Property="Visibility" Value="Visible" />
-                            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <Setter TargetName="Label" Property="Opacity" Value="1" />
                             <Setter Property="FontWeight" Value="SemiBold" />
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -145,6 +151,7 @@
 
     <!-- A tool in the left rail: icon and label, with an accent pill when active. -->
     <Style x:Key="RailItem" TargetType="ListBoxItem" BasedOn="{x:Null}">
+        <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
         <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         <Setter Property="Margin" Value="0,1" />

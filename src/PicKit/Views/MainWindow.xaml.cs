@@ -89,6 +89,12 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnOpenSettings(object sender, RoutedEventArgs e)
+    {
+        var settings = new SettingsWindow { Owner = this, DataContext = _viewModel.CreateSettings() };
+        settings.ShowDialog();
+    }
+
     private void BringToFront()
     {
         // Tests run an off-screen window that must never take focus from the desktop.
