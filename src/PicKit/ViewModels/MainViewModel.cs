@@ -2,6 +2,7 @@ using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PicKit.Core.Diagnostics;
+using PicKit.Core.Documents;
 using PicKit.Core.Imaging;
 using PicKit.Core.Settings;
 using PicKit.Services;
@@ -12,32 +13,50 @@ public sealed partial class MainViewModel : ObservableObject
 {
     private readonly SettingsStore _settings;
     private readonly DialogService _dialogs;
-    private DecodedImage? _current;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasImage))]
-    [NotifyPropertyChangedFor(nameof(WindowTitle))]
-    private ImageBuffer? _image;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(WindowTitle))]
-    private string? _fileName;
-
-    [ObservableProperty]
-    private string _statusText = string.Empty;
-
-    [ObservableProperty]
-    private bool _isBusy;
+    private bool _isLoading;
 
     public MainViewModel(SettingsStore settings, DialogService dialogs)
     {
         _settings = settings;
         _dialogs = dialogs;
+        Editor = new EditorViewModel(dialogs);
+        Editor.DocumentContentChanged += RefreshDocumentText;
     }
 
-    public bool HasImage => Image is not null;
+    public EditorViewModel Editor { get; }
 
-    public string WindowTitle => FileName is null ? "PicKit" : $"{FileName} - PicKit";
+    public bool HasImage => Editor.Document is not null;
+
+    public string WindowTitle
+    {
+        get
+        {
+            if (Editor.Document is not { } document)
+            {
+                return "PicKit";
+            }
+
+            return $"{(document.IsDirty ? "● " : string.Empty)}{document.Source.DisplayName} - PicKit";
+        }
+    }
+
+    public string FileName => Editor.Document?.Source.DisplayName ?? string.Empty;
+
+    public string StatusText
+    {
+        get
+        {
+            if (Editor.Document is not { } document)
+            {
+                return string.Empty;
+            }
+
+            var format = ImageFormats.DisplayName(document.Source.Format);
+            return $"{document.Pixels.Width} × {document.Pixels.Height}  ·  {format}";
+        }
+    }
 
     public void OpenPaths(IReadOnlyList<string> paths)
     {
@@ -48,25 +67,22 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void Open()
-    {
-        var paths = _dialogs.PickImages();
-        OpenPaths(paths);
-    }
+    private void Open() => OpenPaths(_dialogs.PickImages());
 
     private async Task LoadAsync(string path)
     {
-        IsBusy = true;
+        IsLoading = true;
         try
         {
             var decoded = await Task.Run(() => ImageDecoder.Decode(path));
+            var size = new FileInfo(path).Length;
+            var source = new DocumentSource(path, decoded.Format, size, decoded.FrameCount);
 
-            var previous = _current;
-            _current = decoded;
-            Image = decoded.Pixels;
-            FileName = Path.GetFileName(path);
-            StatusText = $"{decoded.Pixels.Width} × {decoded.Pixels.Height}  ·  {ImageFormats.DisplayName(decoded.Format)}";
+            var previous = Editor.Document;
+            Editor.Document = new EditorDocument(decoded.Pixels, source);
             previous?.Dispose();
+
+            RefreshDocumentText();
         }
         catch (ImageException ex)
         {
@@ -75,7 +91,15 @@ public sealed partial class MainViewModel : ObservableObject
         }
         finally
         {
-            IsBusy = false;
+            IsLoading = false;
         }
+    }
+
+    private void RefreshDocumentText()
+    {
+        OnPropertyChanged(nameof(HasImage));
+        OnPropertyChanged(nameof(WindowTitle));
+        OnPropertyChanged(nameof(FileName));
+        OnPropertyChanged(nameof(StatusText));
     }
 }

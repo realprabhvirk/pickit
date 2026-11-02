@@ -3,7 +3,9 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.Input;
+using PicKit.Core.Documents;
 using PicKit.Core.Imaging;
+using PicKit.Core.Markup;
 using PicKit.Core.Rendering;
 using SkiaSharp;
 
@@ -16,11 +18,12 @@ namespace PicKit.Controls;
 /// </summary>
 public sealed class ImageCanvas : FrameworkElement
 {
-    public static readonly DependencyProperty ImageProperty = DependencyProperty.Register(
-        nameof(Image),
-        typeof(ImageBuffer),
+    public static readonly DependencyProperty DocumentProperty = DependencyProperty.Register(
+        nameof(Document),
+        typeof(EditorDocument),
         typeof(ImageCanvas),
-        new FrameworkPropertyMetadata(null, (element, _) => ((ImageCanvas)element).OnImageChanged()));
+        new FrameworkPropertyMetadata(null, (element, change) =>
+            ((ImageCanvas)element).OnDocumentChanged((EditorDocument?)change.OldValue, (EditorDocument?)change.NewValue)));
 
     public static readonly DependencyProperty ToolProperty = DependencyProperty.Register(
         nameof(Tool),
@@ -62,12 +65,10 @@ public sealed class ImageCanvas : FrameworkElement
         ActualSizeCommand = new RelayCommand(ShowActualSize);
     }
 
-    public event Action<SKDrawContext>? DrawContent;
-
-    public ImageBuffer? Image
+    public EditorDocument? Document
     {
-        get => (ImageBuffer?)GetValue(ImageProperty);
-        set => SetValue(ImageProperty, value);
+        get => (EditorDocument?)GetValue(DocumentProperty);
+        set => SetValue(DocumentProperty, value);
     }
 
     public ICanvasTool? Tool
@@ -95,31 +96,9 @@ public sealed class ImageCanvas : FrameworkElement
     /// <summary>True while the space bar is held, which turns a left drag into a pan.</summary>
     public bool IsPanModifierHeld { get; set; }
 
+    private ImageBuffer? Image => Document?.Pixels;
+
     public void Redraw() => InvalidateVisual();
-
-    /// <summary>Call after pixels changed in place, so cached display copies stay truthful.</summary>
-    public void PixelsChanged(SKRectI region)
-    {
-        _pyramid?.Update(region);
-        InvalidateVisual();
-    }
-
-    /// <summary>Resets the view for different pixels, keeping the zoom when the size is unchanged.</summary>
-    public void ImageReplaced(bool refit)
-    {
-        _pyramid?.Dispose();
-        _pyramid = null;
-
-        var image = Image;
-        if (image is not null)
-        {
-            _pyramid = new DisplayPyramid(image);
-            View.SetImage(image.Width, image.Height, refit || View.IsFitted);
-            UpdateZoomText();
-        }
-
-        InvalidateVisual();
-    }
 
     protected override void OnRender(DrawingContext drawingContext)
     {
@@ -131,6 +110,7 @@ public sealed class ImageCanvas : FrameworkElement
             return;
         }
 
+        View.DeviceScale = (float)scale.DpiScaleX;
         View.SetViewport(pixelWidth, pixelHeight);
         UpdateZoomText();
 
@@ -292,7 +272,8 @@ public sealed class ImageCanvas : FrameworkElement
         canvas.Save();
         canvas.ClipRect(bounds);
         canvas.Concat(View.Matrix);
-        DrawContent?.Invoke(new SKDrawContext(canvas, View));
+        MarkupRenderer.Draw(canvas, Document!.Markups);
+        Tool?.DrawOnImage(canvas);
         canvas.Restore();
 
         Tool?.DrawOverlay(canvas, View);
@@ -317,7 +298,54 @@ public sealed class ImageCanvas : FrameworkElement
         return _surface;
     }
 
-    private void OnImageChanged() => ImageReplaced(refit: true);
+    private void OnDocumentChanged(EditorDocument? previous, EditorDocument? current)
+    {
+        if (previous is not null)
+        {
+            previous.Changed -= OnDocumentContentChanged;
+        }
+
+        if (current is not null)
+        {
+            current.Changed += OnDocumentContentChanged;
+        }
+
+        RebuildForImage(refit: true);
+    }
+
+    private void OnDocumentContentChanged(DocumentChange change)
+    {
+        switch (change.Kind)
+        {
+            case DocumentChangeKind.Replaced:
+                var image = Image;
+                var sizeChanged = image is null || image.Width != View.ImageWidth || image.Height != View.ImageHeight;
+                RebuildForImage(sizeChanged);
+                break;
+            case DocumentChangeKind.Region:
+                _pyramid?.Update(change.Region);
+                InvalidateVisual();
+                break;
+            default:
+                InvalidateVisual();
+                break;
+        }
+    }
+
+    private void RebuildForImage(bool refit)
+    {
+        _pyramid?.Dispose();
+        _pyramid = null;
+
+        if (Image is { } image)
+        {
+            _pyramid = new DisplayPyramid(image);
+            View.SetImage(image.Width, image.Height, refit || View.IsFitted);
+            UpdateZoomText();
+        }
+
+        InvalidateVisual();
+    }
 
     private void OnToolChanged()
     {
@@ -361,7 +389,7 @@ public sealed class ImageCanvas : FrameworkElement
     private CanvasPointer PointerAt(Point position, ModifierKeys modifiers)
     {
         var view = ToViewPoint(position);
-        return new CanvasPointer(view, View.ViewToImage(view), modifiers);
+        return new CanvasPointer(view, View.ViewToImage(view), modifiers, (float)View.Zoom);
     }
 
     private SKPoint ToViewPoint(Point position)
@@ -370,6 +398,3 @@ public sealed class ImageCanvas : FrameworkElement
         return new SKPoint((float)(position.X * scale.DpiScaleX), (float)(position.Y * scale.DpiScaleY));
     }
 }
-
-/// <summary>A canvas already set to image coordinates, plus the view it is being drawn for.</summary>
-public readonly record struct SKDrawContext(SKCanvas Canvas, ViewTransform View);

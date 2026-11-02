@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Presets\presets.json" LogicalName="PicKit.Core.Presets.presets.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="MetadataExtractor" />
     <PackageReference Include="SkiaSharp" />
   </ItemGroup>

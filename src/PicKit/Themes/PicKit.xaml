@@ -5,6 +5,9 @@
 
     <controls:BooleanToVisibilityConverter x:Key="BooleanToVisibility" />
     <controls:BooleanToVisibilityConverter x:Key="InverseBooleanToVisibility" Invert="True" />
+    <controls:NullToVisibilityConverter x:Key="NullToCollapsed" />
+    <controls:EqualsConverter x:Key="Equals" />
+    <controls:EqualsToVisibilityConverter x:Key="EqualsToVisibility" />
 
     <!-- Segoe Fluent Icons ships with Windows 11; Windows 10 falls back to MDL2 with the same code points. -->
     <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
@@ -14,7 +17,6 @@
         <Setter Property="FontSize" Value="16" />
         <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="HorizontalAlignment" Value="Center" />
-        <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
     </Style>
 
     <Style x:Key="SecondaryText" TargetType="TextBlock">
@@ -22,10 +24,42 @@
         <Setter Property="FontSize" Value="12" />
     </Style>
 
+    <Style x:Key="BodyHint" TargetType="TextBlock" BasedOn="{StaticResource SecondaryText}">
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="LineHeight" Value="18" />
+    </Style>
+
+    <Style x:Key="FieldLabel" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
+
     <Style x:Key="PanelHeading" TargetType="TextBlock">
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="16" />
         <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Margin" Value="0,0,0,12" />
+    </Style>
+
+    <Style x:Key="WarningText" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <!-- A visible focus ring for keyboard users, used by every custom-templated control. -->
+    <Style x:Key="KeyboardFocus">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Rectangle
+                        Margin="-2"
+                        RadiusX="5"
+                        RadiusY="5"
+                        SnapsToDevicePixels="True"
+                        Stroke="{DynamicResource TextFillColorPrimaryBrush}"
+                        StrokeThickness="2" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <!-- Flat button for the command bar, in the style of the Photos and Paint toolbars. -->
@@ -37,7 +71,7 @@
         <Setter Property="Padding" Value="8,6" />
         <Setter Property="MinHeight" Value="32" />
         <Setter Property="MinWidth" Value="32" />
-        <Setter Property="FocusVisualStyle" Value="{DynamicResource KeyboardFocus}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource KeyboardFocus}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ButtonBase">
@@ -66,18 +100,136 @@
         </Setter>
     </Style>
 
-    <!-- A visible focus ring for keyboard users, used by every custom-templated control. -->
-    <Style x:Key="KeyboardFocus">
-        <Setter Property="Control.Template">
+    <!-- Edit / Tools / Resize for: text tabs with a short accent underline, like Photos. -->
+    <Style x:Key="PivotTab" TargetType="RadioButton" BasedOn="{x:Null}">
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        <Setter Property="Padding" Value="10,6,10,0" />
+        <Setter Property="MinHeight" Value="32" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource KeyboardFocus}" />
+        <Setter Property="Template">
             <Setter.Value>
-                <ControlTemplate>
-                    <Rectangle
-                        Margin="-2"
-                        RadiusX="5"
-                        RadiusY="5"
-                        SnapsToDevicePixels="True"
-                        Stroke="{DynamicResource TextFillColorPrimaryBrush}"
-                        StrokeThickness="2" />
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="Chrome" Background="Transparent" CornerRadius="4">
+                        <Grid Margin="{TemplateBinding Padding}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <Rectangle
+                                x:Name="Underline"
+                                Grid.Row="1"
+                                Width="16"
+                                Height="3"
+                                Margin="0,3,0,2"
+                                Fill="{DynamicResource AccentFillColorDefaultBrush}"
+                                RadiusX="1.5"
+                                RadiusY="1.5"
+                                Visibility="Hidden" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Underline" Property="Visibility" Value="Visible" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A tool in the left rail: icon and label, with an accent pill when active. -->
+    <Style x:Key="RailItem" TargetType="ListBoxItem" BasedOn="{x:Null}">
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Margin" Value="0,1" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource KeyboardFocus}" />
+        <Setter Property="KeyboardNavigation.TabNavigation" Value="Local" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <Border x:Name="Chrome" Background="Transparent" CornerRadius="4">
+                        <Grid MinHeight="36">
+                            <Rectangle
+                                x:Name="Pill"
+                                Width="3"
+                                Height="16"
+                                HorizontalAlignment="Left"
+                                Fill="{DynamicResource AccentFillColorDefaultBrush}"
+                                RadiusX="1.5"
+                                RadiusY="1.5"
+                                Visibility="Collapsed" />
+                            <ContentPresenter Margin="12,0,8,0" VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                            <Setter TargetName="Pill" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{DynamicResource TextFillColorDisabledBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Small selectable pill for choices such as aspect ratios. -->
+    <Style x:Key="ChipItem" TargetType="ListBoxItem" BasedOn="{x:Null}">
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+        <Setter Property="Margin" Value="0,0,6,6" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource KeyboardFocus}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <Border
+                        x:Name="Chrome"
+                        MinWidth="44"
+                        Padding="10,5"
+                        Background="{DynamicResource ControlFillColorDefaultBrush}"
+                        BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4">
+                        <ContentPresenter HorizontalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Bare list: no chrome of its own, so rail and chip items carry the look. -->
+    <Style x:Key="PlainList" TargetType="ListBox" BasedOn="{x:Null}">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBox">
+                    <ScrollViewer Focusable="False">
+                        <ItemsPresenter />
+                    </ScrollViewer>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

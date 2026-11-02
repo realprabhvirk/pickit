@@ -1,0 +1,88 @@
+{
+  "verified": "2026-11-02",
+  "groups": [
+    {
+      "name": "Social",
+      "presets": [
+        {
+          "name": "Instagram Post",
+          "width": 1080,
+          "height": 1080,
+          "note": "Square post.",
+          "source": "https://buffer.com/resources/ideal-cover-photo-size/"
+        },
+        {
+          "name": "Instagram Portrait",
+          "width": 1080,
+          "height": 1350,
+          "note": "4:5 portrait post, which fills more of the feed.",
+          "source": "https://buffer.com/resources/ideal-cover-photo-size/"
+        },
+        {
+          "name": "Instagram Story",
+          "width": 1080,
+          "height": 1920,
+          "note": "9:16 full screen. Also suits Reels covers.",
+          "source": "https://www.lilachbullock.com/social-media-image-size-checker/"
+        },
+        {
+          "name": "YouTube Thumbnail",
+          "width": 1280,
+          "height": 720,
+          "note": "16:9. YouTube accepts 640 pixels wide and up, and limits phone uploads to 2 MB.",
+          "source": "https://support.google.com/youtube/answer/72431"
+        },
+        {
+          "name": "LinkedIn",
+          "width": 1200,
+          "height": 627,
+          "note": "Link and image post.",
+          "source": "https://www.constantcontact.com/blog/social-media-image-sizes/"
+        },
+        {
+          "name": "Facebook",
+          "width": 1200,
+          "height": 630,
+          "note": "Link and photo post.",
+          "source": "https://www.constantcontact.com/blog/social-media-image-sizes/"
+        }
+      ]
+    },
+    {
+      "name": "Communication",
+      "presets": [
+        {
+          "name": "Discord",
+          "width": 1920,
+          "height": 1080,
+          "fitOnly": true,
+          "note": "A sensible size for sharing, not a Discord requirement. Nothing is cropped."
+        },
+        {
+          "name": "Email",
+          "width": 1600,
+          "height": 1600,
+          "fitOnly": true,
+          "note": "A sensible size for attachments, not a mail requirement. Nothing is cropped."
+        }
+      ]
+    },
+    {
+      "name": "Devices",
+      "presets": [
+        {
+          "name": "Phone Wallpaper",
+          "width": 1080,
+          "height": 2400,
+          "note": "20:9, a common shape for current phones. Your phone may differ slightly."
+        },
+        {
+          "name": "Desktop Wallpaper",
+          "width": 2560,
+          "height": 1440,
+          "note": "16:9 at QHD. Also looks sharp on 1080p displays."
+        }
+      ]
+    }
+  ]
+}

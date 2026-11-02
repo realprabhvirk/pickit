@@ -7,12 +7,17 @@
     Title="{Binding WindowTitle}"
     Width="1180"
     Height="760"
-    MinWidth="720"
+    MinWidth="760"
     MinHeight="480"
     AllowDrop="True"
     UseLayoutRounding="True">
     <Window.InputBindings>
         <KeyBinding Command="{Binding OpenCommand}" Gesture="Ctrl+O" />
+        <KeyBinding Command="{Binding Editor.UndoCommand}" Gesture="Ctrl+Z" />
+        <KeyBinding Command="{Binding Editor.RedoCommand}" Gesture="Ctrl+Y" />
+        <KeyBinding Command="{Binding Editor.RedoCommand}" Gesture="Ctrl+Shift+Z" />
+        <KeyBinding Command="{Binding Editor.CancelCommand}" Gesture="Escape" />
+        <KeyBinding Command="{Binding Editor.ApplyPendingCommand}" Gesture="Enter" />
     </Window.InputBindings>
 
     <Grid>
@@ -22,49 +27,202 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
+        <!--  Command bar  -->
         <Border
             Padding="8,4"
             BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
             BorderThickness="0,0,0,1">
-            <StackPanel Orientation="Horizontal">
-                <Button
-                    AutomationProperties.Name="Open image"
-                    Command="{Binding OpenCommand}"
-                    Style="{StaticResource CommandButton}"
-                    ToolTip="Open (Ctrl+O)">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Style="{StaticResource IconText}" Text="&#xE8E5;" />
-                        <TextBlock Margin="8,0,0,0" Text="Open" />
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal">
+                    <Button
+                        AutomationProperties.Name="Open image"
+                        Command="{Binding OpenCommand}"
+                        Style="{StaticResource CommandButton}"
+                        ToolTip="Open (Ctrl+O)">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource IconText}" Text="&#xE838;" />
+                            <TextBlock Margin="8,0,0,0" Text="Open" />
+                        </StackPanel>
+                    </Button>
+
+                    <Rectangle
+                        Width="1"
+                        Margin="8,6"
+                        Fill="{DynamicResource DividerStrokeColorDefaultBrush}"
+                        Visibility="{Binding HasImage, Converter={StaticResource BooleanToVisibility}}" />
+
+                    <StackPanel Orientation="Horizontal" Visibility="{Binding HasImage, Converter={StaticResource BooleanToVisibility}}">
+                        <RadioButton
+                            Content="Edit"
+                            GroupName="EditorTabs"
+                            IsChecked="{Binding Editor.SelectedTab, Converter={StaticResource Equals}, ConverterParameter={x:Static vm:EditorTab.Edit}}"
+                            Style="{StaticResource PivotTab}" />
+                        <RadioButton
+                            Content="Resize for"
+                            GroupName="EditorTabs"
+                            IsChecked="{Binding Editor.SelectedTab, Converter={StaticResource Equals}, ConverterParameter={x:Static vm:EditorTab.ResizeFor}}"
+                            Style="{StaticResource PivotTab}" />
                     </StackPanel>
-                </Button>
-            </StackPanel>
+                </StackPanel>
+
+                <TextBlock
+                    Grid.Column="1"
+                    Margin="12,0"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Text="{Binding FileName}"
+                    TextTrimming="CharacterEllipsis" />
+
+                <StackPanel
+                    Grid.Column="2"
+                    Orientation="Horizontal"
+                    Visibility="{Binding HasImage, Converter={StaticResource BooleanToVisibility}}">
+                    <Button
+                        AutomationProperties.Name="Undo"
+                        Command="{Binding Editor.UndoCommand}"
+                        Style="{StaticResource CommandButton}"
+                        ToolTip="{Binding Editor.UndoToolTip}"
+                        ToolTipService.ShowOnDisabled="True">
+                        <TextBlock Style="{StaticResource IconText}" Text="&#xE7A7;" />
+                    </Button>
+                    <Button
+                        AutomationProperties.Name="Redo"
+                        Command="{Binding Editor.RedoCommand}"
+                        Style="{StaticResource CommandButton}"
+                        ToolTip="{Binding Editor.RedoToolTip}"
+                        ToolTipService.ShowOnDisabled="True">
+                        <TextBlock Style="{StaticResource IconText}" Text="&#xE7A6;" />
+                    </Button>
+                </StackPanel>
+            </Grid>
         </Border>
 
+        <!--  Body  -->
         <Grid Grid.Row="1">
-            <controls:ImageCanvas x:Name="Canvas" Image="{Binding Image}" />
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
 
-            <StackPanel
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                Visibility="{Binding HasImage, Converter={StaticResource InverseBooleanToVisibility}}">
-                <TextBlock
+            <!--  Left rail: tools, or destinations on the "Resize for" tab  -->
+            <Border
+                Width="172"
+                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                BorderThickness="0,0,1,0"
+                IsEnabled="{Binding Editor.IsIdle}"
+                Visibility="{Binding HasImage, Converter={StaticResource BooleanToVisibility}}">
+                <Grid Margin="6,8">
+                    <ListBox
+                        AutomationProperties.Name="Tools"
+                        ItemContainerStyle="{StaticResource RailItem}"
+                        ItemsSource="{Binding Editor.EditTools}"
+                        SelectedItem="{Binding Editor.ActiveTool}"
+                        Style="{StaticResource PlainList}"
+                        Visibility="{Binding Editor.SelectedTab, Converter={StaticResource EqualsToVisibility}, ConverterParameter={x:Static vm:EditorTab.Edit}}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel AutomationProperties.Name="{Binding Name}" Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource IconText}" Text="{Binding Glyph}" />
+                                    <TextBlock
+                                        Margin="12,0,0,0"
+                                        VerticalAlignment="Center"
+                                        Text="{Binding Name}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <ListBox
+                        AutomationProperties.Name="Destinations"
+                        ItemContainerStyle="{StaticResource RailItem}"
+                        ItemsSource="{Binding Editor.Presets.Destinations}"
+                        SelectedItem="{Binding Editor.Presets.SelectedPreset}"
+                        Style="{StaticResource PlainList}"
+                        Visibility="{Binding Editor.SelectedTab, Converter={StaticResource EqualsToVisibility}, ConverterParameter={x:Static vm:EditorTab.ResizeFor}}">
+                        <ListBox.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.HeaderTemplate>
+                                    <DataTemplate>
+                                        <TextBlock
+                                            Margin="12,10,0,4"
+                                            Style="{StaticResource SecondaryText}"
+                                            Text="{Binding Name}" />
+                                    </DataTemplate>
+                                </GroupStyle.HeaderTemplate>
+                            </GroupStyle>
+                        </ListBox.GroupStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock AutomationProperties.Name="{Binding Name}" Text="{Binding Name}" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+
+            <!--  Canvas  -->
+            <Grid Grid.Column="1">
+                <controls:ImageCanvas
+                    x:Name="Canvas"
+                    AutomationProperties.Name="Image"
+                    Document="{Binding Editor.Document}"
+                    Tool="{Binding Editor.CanvasTool}" />
+
+                <ProgressBar
+                    VerticalAlignment="Top"
+                    IsIndeterminate="True"
+                    Visibility="{Binding Editor.IsBusy, Converter={StaticResource BooleanToVisibility}}" />
+
+                <StackPanel
                     HorizontalAlignment="Center"
-                    FontSize="20"
-                    FontWeight="SemiBold"
-                    Text="Drop an image here" />
-                <TextBlock
-                    Margin="0,8,0,12"
-                    HorizontalAlignment="Center"
-                    Style="{StaticResource SecondaryText}"
-                    Text="or" />
-                <Button
-                    HorizontalAlignment="Center"
-                    Command="{Binding OpenCommand}"
-                    Content="Open an image"
-                    Style="{DynamicResource AccentButtonStyle}" />
-            </StackPanel>
+                    VerticalAlignment="Center"
+                    Visibility="{Binding HasImage, Converter={StaticResource InverseBooleanToVisibility}}">
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        FontSize="20"
+                        FontWeight="SemiBold"
+                        Text="Drop an image here" />
+                    <TextBlock
+                        Margin="0,8,0,12"
+                        HorizontalAlignment="Center"
+                        Style="{StaticResource SecondaryText}"
+                        Text="or" />
+                    <Button
+                        HorizontalAlignment="Center"
+                        Command="{Binding OpenCommand}"
+                        Content="Open an image"
+                        Style="{DynamicResource AccentButtonStyle}" />
+                </StackPanel>
+            </Grid>
+
+            <!--  Contextual panel  -->
+            <Border
+                Grid.Column="2"
+                Width="288"
+                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                BorderThickness="1,0,0,0"
+                IsEnabled="{Binding Editor.IsIdle}"
+                Visibility="{Binding Editor.HasActiveTool, Converter={StaticResource BooleanToVisibility}}">
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="16,14">
+                        <TextBlock
+                            Margin="0,0,0,14"
+                            Style="{StaticResource PanelHeading}"
+                            Text="{Binding Editor.ActiveTool.Name}" />
+                        <ContentControl Content="{Binding Editor.ActiveTool}" Focusable="False" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
         </Grid>
 
+        <!--  Status bar  -->
         <Border
             Grid.Row="2"
             Padding="12,2"
@@ -114,7 +272,7 @@
                         Command="{Binding ActualSizeCommand, ElementName=Canvas}"
                         Style="{StaticResource CommandButton}"
                         ToolTip="Actual size (Ctrl+1)">
-                        <TextBlock Style="{StaticResource IconText}" Text="&#xE71E;" />
+                        <TextBlock FontSize="12" Text="1:1" />
                     </Button>
                 </StackPanel>
             </DockPanel>

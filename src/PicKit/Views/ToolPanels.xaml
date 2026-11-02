@@ -1,0 +1,209 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:imaging="clr-namespace:PicKit.Core.Imaging;assembly=PicKit.Core"
+    xmlns:tools="clr-namespace:PicKit.ViewModels.Tools">
+
+    <DataTemplate DataType="{x:Type tools:CropToolViewModel}">
+        <StackPanel>
+            <TextBlock Style="{StaticResource FieldLabel}" Text="Aspect ratio" />
+            <ListBox
+                AutomationProperties.Name="Aspect ratio"
+                ItemContainerStyle="{StaticResource ChipItem}"
+                ItemsSource="{Binding Aspects}"
+                SelectedItem="{Binding SelectedAspect}"
+                Style="{StaticResource PlainList}">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Label}" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <Grid Margin="0,6,0,0" Visibility="{Binding IsCustomAspect, Converter={StaticResource BooleanToVisibility}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBox AutomationProperties.Name="Custom ratio width" Text="{Binding CustomWidth, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock
+                    Grid.Column="1"
+                    Margin="8,0"
+                    VerticalAlignment="Center"
+                    Text=":" />
+                <TextBox
+                    Grid.Column="2"
+                    AutomationProperties.Name="Custom ratio height"
+                    Text="{Binding CustomHeight, UpdateSourceTrigger=PropertyChanged}" />
+            </Grid>
+
+            <Button
+                Margin="0,10,0,0"
+                HorizontalAlignment="Left"
+                Command="{Binding SwapOrientationCommand}"
+                Content="Swap orientation"
+                ToolTip="Switch between landscape and portrait" />
+
+            <TextBlock Margin="0,16,0,2" Style="{StaticResource SecondaryText}" Text="Size after crop" />
+            <TextBlock FontSize="14" Text="{Binding SizeText}" />
+
+            <TextBlock
+                Margin="0,14,0,0"
+                Style="{StaticResource BodyHint}"
+                Text="Drag the corners or edges, or drag inside the box to move it." />
+
+            <Grid Margin="0,18,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button
+                    HorizontalAlignment="Stretch"
+                    Command="{Binding CancelCommand}"
+                    Content="Cancel" />
+                <Button
+                    Grid.Column="2"
+                    HorizontalAlignment="Stretch"
+                    Command="{Binding ApplyCommand}"
+                    Content="Apply Crop"
+                    Style="{DynamicResource AccentButtonStyle}" />
+            </Grid>
+        </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type tools:ResizeToolViewModel}">
+        <StackPanel>
+            <TextBlock Style="{StaticResource FieldLabel}" Text="Mode" />
+            <RadioButton
+                Content="Scale"
+                GroupName="ResizeMode"
+                IsChecked="{Binding Mode, Converter={StaticResource Equals}, ConverterParameter={x:Static imaging:ResizeMode.Scale}}" />
+            <RadioButton
+                Content="Fit"
+                GroupName="ResizeMode"
+                IsChecked="{Binding Mode, Converter={StaticResource Equals}, ConverterParameter={x:Static imaging:ResizeMode.Fit}}" />
+            <RadioButton
+                Content="Crop to fill"
+                GroupName="ResizeMode"
+                IsChecked="{Binding Mode, Converter={StaticResource Equals}, ConverterParameter={x:Static imaging:ResizeMode.CropToFill}}" />
+            <TextBlock
+                Margin="0,6,0,0"
+                Style="{StaticResource BodyHint}"
+                Text="{Binding ModeDescription}" />
+
+            <Grid Margin="0,14,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Style="{StaticResource FieldLabel}" Text="Width" />
+                    <TextBox AutomationProperties.Name="Width" Text="{Binding WidthText, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Style="{StaticResource FieldLabel}" Text="Height" />
+                    <TextBox AutomationProperties.Name="Height" Text="{Binding HeightText, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+            </Grid>
+
+            <CheckBox
+                Margin="0,10,0,0"
+                Content="Keep aspect ratio"
+                IsChecked="{Binding KeepAspect}"
+                Visibility="{Binding ShowsKeepAspect, Converter={StaticResource BooleanToVisibility}}" />
+
+            <TextBlock
+                Margin="0,8,0,0"
+                Style="{StaticResource WarningText}"
+                Text="{Binding Warning}"
+                Visibility="{Binding Warning, Converter={StaticResource NullToCollapsed}}" />
+
+            <Grid Margin="0,14,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SecondaryText}" Text="Original" />
+                    <TextBlock Text="{Binding OriginalText}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                    <TextBlock Style="{StaticResource SecondaryText}" Text="Result" />
+                    <TextBlock Text="{Binding ResultText}" />
+                </StackPanel>
+            </Grid>
+
+            <Button
+                Margin="0,18,0,0"
+                HorizontalAlignment="Stretch"
+                Command="{Binding ApplyCommand}"
+                Content="Apply"
+                Style="{DynamicResource AccentButtonStyle}" />
+        </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type tools:RotateToolViewModel}">
+        <StackPanel>
+            <Button
+                Margin="0,0,0,8"
+                HorizontalAlignment="Stretch"
+                Command="{Binding RotateLeftCommand}"
+                Content="Rotate left" />
+            <Button
+                Margin="0,0,0,16"
+                HorizontalAlignment="Stretch"
+                Command="{Binding RotateRightCommand}"
+                Content="Rotate right" />
+            <Button
+                Margin="0,0,0,8"
+                HorizontalAlignment="Stretch"
+                Command="{Binding FlipHorizontalCommand}"
+                Content="Flip horizontal" />
+            <Button
+                HorizontalAlignment="Stretch"
+                Command="{Binding FlipVerticalCommand}"
+                Content="Flip vertical" />
+        </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type tools:PresetToolViewModel}">
+        <StackPanel>
+            <TextBlock
+                Style="{StaticResource BodyHint}"
+                Text="Choose where this image is going."
+                Visibility="{Binding HasSelection, Converter={StaticResource InverseBooleanToVisibility}}" />
+
+            <StackPanel Visibility="{Binding HasSelection, Converter={StaticResource BooleanToVisibility}}">
+                <TextBlock FontSize="14" FontWeight="SemiBold" Text="{Binding SelectedPreset.Name}" />
+                <TextBlock Margin="0,2,0,0" Text="{Binding SelectedPreset.DimensionsText}" />
+                <TextBlock Margin="0,0,0,10" Style="{StaticResource SecondaryText}" Text="{Binding SelectedPreset.AspectText}" />
+                <TextBlock Style="{StaticResource BodyHint}" Text="{Binding SelectedPreset.Note}" />
+                <TextBlock
+                    Margin="0,10,0,0"
+                    Style="{StaticResource BodyHint}"
+                    Text="{Binding CropSummary}" />
+
+                <Button
+                    Margin="0,18,0,8"
+                    HorizontalAlignment="Stretch"
+                    Command="{Binding CropToFitCommand}"
+                    Content="Crop to Fit"
+                    Style="{DynamicResource AccentButtonStyle}"
+                    Visibility="{Binding CanCrop, Converter={StaticResource BooleanToVisibility}}" />
+                <Button
+                    HorizontalAlignment="Stretch"
+                    Command="{Binding FitInsideCommand}"
+                    Content="Fit Inside" />
+            </StackPanel>
+        </StackPanel>
+    </DataTemplate>
+
+</ResourceDictionary>

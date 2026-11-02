@@ -88,7 +88,7 @@ internal sealed class UiHarness : IDisposable
     public void Screenshot(string name)
     {
         Pump();
-        var folder = Path.Combine(Path.GetTempPath(), "PicKitUiShots");
+        var folder = Environment.GetEnvironmentVariable("PICKIT_SHOTS") ?? Path.Combine(Path.GetTempPath(), "PicKitUiShots");
         Directory.CreateDirectory(folder);
 
         var handle = new WindowInteropHelper(Window).Handle;

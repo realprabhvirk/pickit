@@ -117,7 +117,7 @@ public class CanvasUiTests
         }
 
         harness.ViewModel.OpenPaths([path]);
-        harness.WaitFor(() => harness.ViewModel.HasImage);
+        harness.WaitFor(() => harness.ViewModel.HasImage && !harness.ViewModel.IsLoading);
         harness.Pump();
     }
 

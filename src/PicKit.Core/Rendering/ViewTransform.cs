@@ -15,6 +15,9 @@ public sealed class ViewTransform
     /// <summary>Gap kept around a fitted image so handles at its edge stay reachable.</summary>
     public double Padding { get; set; } = 24;
 
+    /// <summary>Device pixels per layout unit, so overlays stay the same size at every DPI.</summary>
+    public float DeviceScale { get; set; } = 1;
+
     public double Zoom { get; private set; } = 1;
 
     public double OffsetX { get; private set; }
