@@ -149,7 +149,7 @@ public class HistoryTests
     public void Markup_follows_the_image_through_a_crop_and_undo()
     {
         using var document = Document(TestImages.Solid(100, 100, SKColors.White));
-        document.SetMarkups("Add", [new PointMark(new SKPoint(50, 50))]);
+        document.SetMarkups("Add", [new PointMark(new SKPoint(50, 50)) { Style = new MarkupStyle(SKColors.Red, 1) }]);
 
         var region = new SKRectI(10, 20, 90, 90);
         document.ReplacePixels(
@@ -169,7 +169,7 @@ public class HistoryTests
         using var document = Document(TestImages.Solid(100, 100, SKColors.White));
         var pixels = document.Pixels;
 
-        document.SetMarkups("Add", [new PointMark(new SKPoint(1, 1))]);
+        document.SetMarkups("Add", [new PointMark(new SKPoint(1, 1)) { Style = new MarkupStyle(SKColors.Red, 1) }]);
         Assert.Same(pixels, document.Pixels);
         Assert.Equal(0, document.History.BytesInMemory);
 
@@ -182,7 +182,7 @@ public class HistoryTests
     public void Flattening_leaves_the_editable_state_alone()
     {
         using var document = Document(TestImages.Solid(10, 10, SKColors.White));
-        document.SetMarkups("Add", [new PointMark(new SKPoint(5, 5))]);
+        document.SetMarkups("Add", [new PointMark(new SKPoint(5, 5)) { Style = new MarkupStyle(SKColors.Red, 1) }]);
 
         using var flat = document.RenderFlattened();
 

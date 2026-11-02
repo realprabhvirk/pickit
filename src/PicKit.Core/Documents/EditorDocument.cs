@@ -92,6 +92,13 @@ public sealed class EditorDocument : IDisposable
         Changed?.Invoke(new DocumentChange(DocumentChangeKind.Markup, Pixels.Bounds));
     }
 
+    /// <summary>Shows markup mid-gesture. Not undoable by itself; finish with <see cref="SetMarkups"/>.</summary>
+    public void PreviewMarkups(ImmutableArray<MarkupElement> markups)
+    {
+        Markups = markups;
+        Changed?.Invoke(new DocumentChange(DocumentChangeKind.Markup, Pixels.Bounds));
+    }
+
     public void Undo() => History.Undo(this);
 
     public void Redo() => History.Redo(this);

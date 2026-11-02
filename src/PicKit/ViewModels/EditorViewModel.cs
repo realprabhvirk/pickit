@@ -1,6 +1,8 @@
+using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PicKit.Controls;
+using PicKit.Controls.Tools;
 using PicKit.Core.Diagnostics;
 using PicKit.Core.Documents;
 using PicKit.Core.Imaging;
@@ -52,7 +54,48 @@ public sealed partial class EditorViewModel : ObservableObject
         Resize = new ResizeToolViewModel(this);
         Rotate = new RotateToolViewModel(this);
         Presets = new PresetToolViewModel(this);
-        EditTools = [Crop, Resize, Rotate];
+
+        var colors = new ColorService();
+        var red = Color.FromRgb(0xE8, 0x11, 0x23);
+        Markup = new MarkupToolViewModel(
+            this,
+            colors,
+            "Markup",
+            "\uE76D",
+            [
+                new(MarkupMode.Pen, "Pen", "\uEDFB"),
+                new(MarkupMode.Arrow, "Arrow", "\uE72A"),
+                new(MarkupMode.Line, "Line", "\uE738"),
+                new(MarkupMode.Rectangle, "Rectangle", "\uE739"),
+                new(MarkupMode.Ellipse, "Circle", "\uEA3A"),
+                new(MarkupMode.Select, "Select", "\uE7C9"),
+            ],
+            red,
+            defaultThickness: 4,
+            defaultOpacity: 1);
+
+        Text = new MarkupToolViewModel(
+            this,
+            colors,
+            "Text",
+            "\uE8D2",
+            [new(MarkupMode.Text, "Text", "\uE8D2")],
+            red,
+            defaultThickness: 4,
+            defaultOpacity: 1,
+            showsOpacity: false);
+
+        Highlight = new MarkupToolViewModel(
+            this,
+            colors,
+            "Highlight",
+            "\uE7E6",
+            [new(MarkupMode.Highlight, "Highlight", "\uE7E6")],
+            Color.FromRgb(0xFF, 0xE0, 0x33),
+            defaultThickness: 24,
+            defaultOpacity: 0.6);
+
+        EditTools = [Crop, Resize, Rotate, Markup, Text, Highlight];
     }
 
     public event Action? DocumentContentChanged;
@@ -64,6 +107,12 @@ public sealed partial class EditorViewModel : ObservableObject
     public RotateToolViewModel Rotate { get; }
 
     public PresetToolViewModel Presets { get; }
+
+    public MarkupToolViewModel Markup { get; }
+
+    public MarkupToolViewModel Text { get; }
+
+    public MarkupToolViewModel Highlight { get; }
 
     public IReadOnlyList<ToolViewModel> EditTools { get; }
 
@@ -188,6 +237,15 @@ public sealed partial class EditorViewModel : ObservableObject
         if (IsIdle)
         {
             ClearActiveTool();
+        }
+    }
+
+    [RelayCommand]
+    private void DeleteSelection()
+    {
+        if (IsIdle && ActiveTool is MarkupToolViewModel markup)
+        {
+            markup.DeleteSelected();
         }
     }
 

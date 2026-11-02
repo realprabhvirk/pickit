@@ -2,8 +2,10 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using PicKit.Core.Settings;
 using PicKit.ViewModels;
+using PicKit.ViewModels.Tools;
 
 namespace PicKit.Views;
 
@@ -11,6 +13,7 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
     private readonly SettingsStore _settings;
+    private MarkupToolViewModel? _textTool;
 
     public MainWindow(MainViewModel viewModel, SettingsStore settings)
     {
@@ -22,6 +25,8 @@ public partial class MainWindow : Window
         Drop += OnDrop;
         PreviewKeyDown += OnPreviewKeyDown;
         PreviewKeyUp += OnPreviewKeyUp;
+        viewModel.Editor.Markup.PropertyChanged += OnMarkupToolChanged;
+        viewModel.Editor.Text.PropertyChanged += OnMarkupToolChanged;
         Deactivated += (_, _) => Canvas.IsPanModifierHeld = false;
     }
 
@@ -64,6 +69,72 @@ public partial class MainWindow : Window
             Canvas.IsPanModifierHeld = false;
         }
     }
+
+    private void OnMarkupToolChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MarkupToolViewModel.TextEdit) && sender is MarkupToolViewModel tool)
+        {
+            _textTool = tool;
+            ShowTextEntry(tool);
+        }
+    }
+
+    /// <summary>Places a real text box exactly where the finished text will be drawn.</summary>
+    private void ShowTextEntry(MarkupToolViewModel tool)
+    {
+        if (tool.TextEdit is not { } session)
+        {
+            TextEntry.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var view = Canvas.View;
+        var scale = view.DeviceScale;
+        var position = view.ImageToView(session.Position);
+        var text = session.Existing;
+
+        System.Windows.Controls.Canvas.SetLeft(TextEntry, position.X / scale);
+        System.Windows.Controls.Canvas.SetTop(TextEntry, position.Y / scale);
+
+        TextEntry.FontSize = (text?.FontSize ?? tool.FontSizeInImagePixels) * view.Zoom / scale;
+        TextEntry.Foreground = new SolidColorBrush(tool.Color);
+        TextEntry.CaretBrush = TextEntry.Foreground;
+        TextEntry.Text = text?.Text ?? string.Empty;
+        TextEntry.Visibility = Visibility.Visible;
+        TextEntry.Focus();
+        TextEntry.SelectAll();
+    }
+
+    private void FinishTextEntry(bool cancel)
+    {
+        var tool = _textTool;
+        if (tool?.TextEdit is null)
+        {
+            return;
+        }
+
+        var text = TextEntry.Text;
+        TextEntry.Visibility = Visibility.Collapsed;
+        tool.CommitTextEdit(text, cancel);
+        Canvas.Focus();
+    }
+
+    private void OnTextEntryKeyDown(object sender, KeyEventArgs e)
+    {
+        // Enter makes a new line, as in any text box; Ctrl+Enter finishes, Escape abandons.
+        if (e.Key == Key.Escape)
+        {
+            FinishTextEntry(cancel: true);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Enter && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        {
+            FinishTextEntry(cancel: false);
+            e.Handled = true;
+        }
+    }
+
+    private void OnTextEntryLostFocus(object sender, KeyboardFocusChangedEventArgs e) => FinishTextEntry(cancel: false);
 
     private void OnDrop(object sender, DragEventArgs e)
     {

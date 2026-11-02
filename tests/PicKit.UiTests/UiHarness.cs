@@ -87,6 +87,9 @@ internal sealed class UiHarness : IDisposable
 
     public void Screenshot(string name)
     {
+        // Let the render thread present the latest frame before capturing it.
+        var settled = DateTime.UtcNow.AddMilliseconds(250);
+        WaitFor(() => DateTime.UtcNow > settled);
         Pump();
         var folder = Environment.GetEnvironmentVariable("PICKIT_SHOTS") ?? Path.Combine(Path.GetTempPath(), "PicKitUiShots");
         Directory.CreateDirectory(folder);

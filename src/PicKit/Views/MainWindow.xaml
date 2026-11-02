@@ -18,6 +18,7 @@
         <KeyBinding Command="{Binding Editor.RedoCommand}" Gesture="Ctrl+Shift+Z" />
         <KeyBinding Command="{Binding Editor.CancelCommand}" Gesture="Escape" />
         <KeyBinding Command="{Binding Editor.ApplyPendingCommand}" Gesture="Enter" />
+        <KeyBinding Command="{Binding Editor.DeleteSelectionCommand}" Gesture="Delete" />
     </Window.InputBindings>
 
     <Grid>
@@ -174,6 +175,21 @@
                     AutomationProperties.Name="Image"
                     Document="{Binding Editor.Document}"
                     Tool="{Binding Editor.CanvasTool}" />
+
+                <Canvas ClipToBounds="True">
+                    <TextBox
+                        x:Name="TextEntry"
+                        MinWidth="40"
+                        Padding="0"
+                        AcceptsReturn="True"
+                        AutomationProperties.Name="Text to add"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        FontFamily="Segoe UI"
+                        LostKeyboardFocus="OnTextEntryLostFocus"
+                        PreviewKeyDown="OnTextEntryKeyDown"
+                        Visibility="Collapsed" />
+                </Canvas>
 
                 <ProgressBar
                     VerticalAlignment="Top"
