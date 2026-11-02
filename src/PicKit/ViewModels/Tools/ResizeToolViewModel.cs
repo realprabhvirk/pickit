@@ -9,18 +9,34 @@ using SkiaSharp;
 
 namespace PicKit.ViewModels.Tools;
 
+public sealed record UnitChoice(SizeUnit Unit, string Label);
+
 public sealed partial class ResizeToolViewModel : ToolViewModel
 {
     private readonly CropCanvasTool _cropGuide = new();
     private readonly SizeEstimator _estimator = new();
     private readonly DocumentSaver _saver;
     private bool _isSyncing;
+    private int _pixelWidth = 1;
+    private int _pixelHeight = 1;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanvasTool))]
     [NotifyPropertyChangedFor(nameof(ShowsKeepAspect))]
     [NotifyPropertyChangedFor(nameof(ModeDescription))]
     private ResizeMode _mode = ResizeMode.Scale;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsDpi))]
+    [NotifyPropertyChangedFor(nameof(WidthLabel))]
+    [NotifyPropertyChangedFor(nameof(HeightLabel))]
+    private UnitChoice _selectedUnit;
+
+    [ObservableProperty]
+    private string _dpiText = PhysicalSize.DefaultDpi.ToString();
+
+    [ObservableProperty]
+    private string _printText = string.Empty;
 
     [ObservableProperty]
     private string _widthText = string.Empty;
@@ -51,7 +67,15 @@ public sealed partial class ResizeToolViewModel : ToolViewModel
         : base(editor)
     {
         _saver = saver;
+        _selectedUnit = Units[0];
     }
+
+    public IReadOnlyList<UnitChoice> Units { get; } =
+    [
+        new(SizeUnit.Pixels, "Pixels"),
+        new(SizeUnit.Millimetres, "mm"),
+        new(SizeUnit.Centimetres, "cm"),
+    ];
 
     public override string Name => "Resize";
 
@@ -59,7 +83,22 @@ public sealed partial class ResizeToolViewModel : ToolViewModel
 
     public override ICanvasTool? CanvasTool => Mode == ResizeMode.CropToFill ? _cropGuide : null;
 
+    private SizeUnit Unit => SelectedUnit.Unit;
+
+    private string UnitName => Unit == SizeUnit.Pixels ? "pixels" : SelectedUnit.Label;
+
+    private bool HasValidDpi => int.TryParse(DpiText, out var dpi) && PhysicalSize.IsValidDpi(dpi);
+
+    private int Dpi => HasValidDpi ? int.Parse(DpiText) : PhysicalSize.DefaultDpi;
+
     public bool ShowsKeepAspect => Mode == ResizeMode.Scale;
+
+    /// <summary>A print size means nothing without a resolution, so it's only asked for then.</summary>
+    public bool ShowsDpi => Unit != SizeUnit.Pixels;
+
+    public string WidthLabel => $"Width ({UnitName})";
+
+    public string HeightLabel => $"Height ({UnitName})";
 
     public string ModeDescription => Mode switch
     {
@@ -83,6 +122,14 @@ public sealed partial class ResizeToolViewModel : ToolViewModel
 
         return true;
     }
+
+    partial void OnSelectedUnitChanged(UnitChoice value)
+    {
+        ShowPixels(_pixelWidth, _pixelHeight);
+        Recalculate();
+    }
+
+    partial void OnDpiTextChanged(string value) => Recalculate();
 
     partial void OnModeChanged(ResizeMode value)
     {
@@ -125,20 +172,29 @@ public sealed partial class ResizeToolViewModel : ToolViewModel
             return;
         }
 
-        _isSyncing = true;
-        WidthText = pixels.Width.ToString();
-        HeightText = pixels.Height.ToString();
-        _isSyncing = false;
+        ShowPixels(pixels.Width, pixels.Height);
         OriginalText = $"{pixels.Width} × {pixels.Height}";
         Recalculate();
     }
+
+    private void ShowPixels(int width, int height)
+    {
+        _pixelWidth = width;
+        _pixelHeight = height;
+        _isSyncing = true;
+        WidthText = Display(width);
+        HeightText = Display(height);
+        _isSyncing = false;
+    }
+
+    private string Display(int pixels) => PhysicalSize.Format(PhysicalSize.FromPixels(pixels, Unit, Dpi), Unit);
 
     private void SyncFromWidth()
     {
         if (KeepAspect && Mode == ResizeMode.Scale && Editor.Document?.Pixels is { } pixels && TryParse(WidthText, out var width))
         {
             _isSyncing = true;
-            HeightText = ResizeCalculator.HeightForWidth(pixels.Width, pixels.Height, width).ToString();
+            HeightText = Display(ResizeCalculator.HeightForWidth(pixels.Width, pixels.Height, width));
             _isSyncing = false;
         }
     }
@@ -148,7 +204,7 @@ public sealed partial class ResizeToolViewModel : ToolViewModel
         if (KeepAspect && Mode == ResizeMode.Scale && Editor.Document?.Pixels is { } pixels && TryParse(HeightText, out var height))
         {
             _isSyncing = true;
-            WidthText = ResizeCalculator.WidthForHeight(pixels.Width, pixels.Height, height).ToString();
+            WidthText = Display(ResizeCalculator.WidthForHeight(pixels.Width, pixels.Height, height));
             _isSyncing = false;
         }
     }
@@ -157,6 +213,7 @@ public sealed partial class ResizeToolViewModel : ToolViewModel
     {
         Warning = null;
         ResultText = string.Empty;
+        PrintText = string.Empty;
         EstimateText = string.Empty;
         _estimator.Cancel();
 
@@ -166,15 +223,27 @@ public sealed partial class ResizeToolViewModel : ToolViewModel
             return;
         }
 
-        if (!TryParse(WidthText, out var width) || !TryParse(HeightText, out var height))
+        if (ShowsDpi && !HasValidDpi)
         {
-            Warning = $"Enter a width and height from 1 to {ImageLimits.MaxDimension}.";
+            Warning = $"Enter a print resolution from 1 to {PhysicalSize.MaxDpi} DPI.";
             IsValid = false;
             return;
         }
 
+        if (!TryParse(WidthText, out var width) || !TryParse(HeightText, out var height))
+        {
+            Warning = ShowsDpi
+                ? $"That size has to come to between 1 and {ImageLimits.MaxDimension} pixels."
+                : $"Enter a width and height from 1 to {ImageLimits.MaxDimension}.";
+            IsValid = false;
+            return;
+        }
+
+        _pixelWidth = width;
+        _pixelHeight = height;
         var plan = ResizeCalculator.Plan(pixels.Width, pixels.Height, width, height, Mode);
         ResultText = $"{plan.Width} × {plan.Height}";
+        PrintText = DescribePrintSize(plan);
         IsValid = ImageLimits.Fits(plan.Width, plan.Height);
 
         if (!IsValid)
@@ -224,8 +293,31 @@ public sealed partial class ResizeToolViewModel : ToolViewModel
         }
     }
 
-    private static bool TryParse(string text, out int value) =>
-        int.TryParse(text, out value) && value is > 0 and <= ImageLimits.MaxDimension;
+    private string DescribePrintSize(ResizePlan plan)
+    {
+        if (!ShowsDpi)
+        {
+            return string.Empty;
+        }
+
+        var size = $"{Display(plan.Width)} × {Display(plan.Height)} {UnitName} at {Dpi} DPI";
+        return Editor.Document is { Source.Format: var format } && ImageResolution.CanStore(format)
+            ? $"Prints at {size}."
+            : $"Sized for {size}. This file type can't store a print size, so save as JPEG or PNG to keep it.";
+    }
+
+    /// <summary>Reads a typed size as pixels. Whole pixels only, unless it's a print size.</summary>
+    private bool TryParse(string text, out int pixels)
+    {
+        pixels = 0;
+        if (!PhysicalSize.TryParse(text, out var value) || (Unit == SizeUnit.Pixels && value != Math.Floor(value)))
+        {
+            return false;
+        }
+
+        pixels = PhysicalSize.ToPixels(value, Unit, Dpi);
+        return pixels is > 0 and <= ImageLimits.MaxDimension;
+    }
 
     private bool CanApply() => IsValid;
 
@@ -245,8 +337,11 @@ public sealed partial class ResizeToolViewModel : ToolViewModel
             plan = plan with { Crop = _cropGuide.PixelBox };
         }
 
+        var document = Editor.Document;
+        var dpi = ShowsDpi ? Dpi : (int?)null;
         var mapping = MarkupMapping(pixels.Width, pixels.Height, plan);
         await Editor.ApplyAsync("Resize", source => ImageOps.ApplyPlan(source, plan), () => mapping);
+        document!.PrintDpi = dpi;
     }
 
     private static SKMatrix MarkupMapping(int sourceWidth, int sourceHeight, ResizePlan plan)

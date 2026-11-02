@@ -174,7 +174,8 @@ public sealed class DocumentSaver
         editor.BeginBusy("Saving...");
         try
         {
-            var result = await Task.Run(() => ExportService.Save(flattened, options, path, exif));
+            var dpi = document.PrintDpi;
+            var result = await Task.Run(() => ExportService.Save(flattened, options, path, exif, dpi));
 
             if (becomesSource)
             {

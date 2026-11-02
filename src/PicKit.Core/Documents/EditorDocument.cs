@@ -42,6 +42,9 @@ public sealed class EditorDocument : IDisposable
 
     public event Action<DocumentChange>? Changed;
 
+    /// <summary>The resolution to record on save, once the image has been sized for print.</summary>
+    public int? PrintDpi { get; set; }
+
     public ImageBuffer Pixels { get; private set; }
 
     public ImmutableArray<MarkupElement> Markups { get; private set; } = [];

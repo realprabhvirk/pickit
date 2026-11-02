@@ -9,9 +9,14 @@ public sealed record ExportResult(string Path, long Size);
 public static class ExportService
 {
     /// <summary>Encodes and writes an image. The target is replaced only once the file is complete.</summary>
-    public static ExportResult Save(ImageBuffer image, EncodeOptions options, string path, byte[]? exifSegment = null)
+    public static ExportResult Save(ImageBuffer image, EncodeOptions options, string path, byte[]? exifSegment = null, int? printDpi = null)
     {
         var data = ImageEncoder.Encode(image, options);
+        if (printDpi is { } dpi)
+        {
+            data = ImageResolution.Stamp(data, options.Format, dpi);
+        }
+
         if (exifSegment is not null && options.Format == ImageFormat.Jpeg)
         {
             data = ExifCarryOver.Insert(data, exifSegment);

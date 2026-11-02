@@ -304,7 +304,7 @@ public static class MetadataStripper
         throw new InvalidDataException("The PNG has no end chunk.");
     }
 
-    private static uint Crc32(ReadOnlySpan<byte> data)
+    internal static uint Crc32(ReadOnlySpan<byte> data)
     {
         const uint polynomial = 0xEDB88320;
         var crc = uint.MaxValue;
