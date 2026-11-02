@@ -6,13 +6,14 @@ using PicKit.Core.Background;
 using PicKit.Core.Diagnostics;
 using PicKit.Core.Imaging;
 using PicKit.Core.Shell;
+using SkiaSharp;
 
 namespace PicKit.Background;
 
 /// <summary>
-/// The small part of PicKit that's always running. It holds the screenshot hotkey and the drop
-/// box, and does nothing else until one of them is used. The full app only starts when there's
-/// something to show, and closing it gives all of its memory back.
+/// The small part of PicKit that's always running. It holds the snip hotkey and the ribbon, and
+/// does nothing else until one of them is used. The full app only starts when there's something
+/// to show, and closing it gives all of its memory back.
 /// </summary>
 internal sealed class BackgroundAgent : AgentWindow
 {
@@ -26,10 +27,9 @@ internal sealed class BackgroundAgent : AgentWindow
     private readonly ConcurrentQueue<Action> _queue = new();
     private readonly ImageInbox _inbox = new();
     private readonly BackgroundSettingsStore _settings = new();
-    private readonly string _executable;
     private readonly KeyChordWatcher _keys = new();
     private readonly TriggerGate _gate = new();
-    private readonly NotificationWindow _notification;
+    private readonly string _executable;
     private readonly SnipOverlay _overlay;
     private readonly EdgeRibbonWindow? _ribbon;
 
@@ -37,7 +37,6 @@ internal sealed class BackgroundAgent : AgentWindow
         : base(Native.WS_POPUP, Native.WS_EX_TOOLWINDOW)
     {
         _executable = executable;
-        _notification = new NotificationWindow(TrimMemorySoon);
         _overlay = new SnipOverlay(OnSnipped, TrimMemorySoon);
 
         if (_settings.Load().ShowRibbon)
@@ -56,6 +55,8 @@ internal sealed class BackgroundAgent : AgentWindow
         }
 
         Native.OleInitialize(0);
+        ShellRegistration.ForCurrentUser(executable).RegisterNotifications();
+
         using var stop = new EventWaitHandle(false, EventResetMode.AutoReset, BackgroundSignals.StopEventName);
         using var capture = new EventWaitHandle(false, EventResetMode.AutoReset, BackgroundSignals.CaptureEventName);
         using var agent = new BackgroundAgent(executable);
@@ -75,11 +76,20 @@ internal sealed class BackgroundAgent : AgentWindow
         return 0;
     }
 
+    /// <summary>
+    /// Puts a screenshot in the inbox as a PNG, and returns it ready for the clipboard too.
+    /// </summary>
+    internal static (string Path, IReadOnlyList<ClipboardItem> Items) Store(ImageInbox inbox, ImageBuffer image, DateTime time)
+    {
+        var items = ClipboardCodec.Encode(image, CopyMode.Standard, SKColors.White);
+        var png = items.First(item => item.Format == ClipboardCodec.PngFormat).Data;
+        return (inbox.Add(png, ImageInbox.ScreenshotName(time)), items);
+    }
+
     public override void Dispose()
     {
         _ribbon?.Dispose();
         _overlay.Dispose();
-        _notification.Dispose();
         base.Dispose();
     }
 
@@ -108,6 +118,10 @@ internal sealed class BackgroundAgent : AgentWindow
         }
     }
 
+    private static void Notify(string title, string detail) => WindowsToast.Show(ToastContent.Build(title, detail));
+
+    private static void ShowNoImage() => Notify("That isn't an image", "PicKit couldn't find a picture in what you dropped.");
+
     private void RegisterHotkey()
     {
         // Reserving it stops the keys also reaching the app in use. Raw input still sees them
@@ -116,32 +130,6 @@ internal sealed class BackgroundAgent : AgentWindow
         {
             Log.Warn("Ctrl+Alt+S is already taken by another app");
         }
-    }
-
-    private void WatchSignals(EventWaitHandle stop, EventWaitHandle capture)
-    {
-        var thread = new Thread(() =>
-        {
-            WaitHandle[] handles = [stop, capture];
-            while (WaitHandle.WaitAny(handles) != 0)
-            {
-                Post(() => StartSnip("a request"));
-            }
-
-            Native.PostMessageW(Handle, Native.WM_CLOSE, 0, 0);
-        })
-        {
-            IsBackground = true,
-            Name = "PicKit background signals",
-        };
-
-        thread.Start();
-    }
-
-    private void Post(Action action)
-    {
-        _queue.Enqueue(action);
-        Native.PostMessageW(Handle, RunQueued, 0, 0);
     }
 
     /// <summary>
@@ -190,6 +178,32 @@ internal sealed class BackgroundAgent : AgentWindow
         }
     }
 
+    private void WatchSignals(EventWaitHandle stop, EventWaitHandle capture)
+    {
+        var thread = new Thread(() =>
+        {
+            WaitHandle[] handles = [stop, capture];
+            while (WaitHandle.WaitAny(handles) != 0)
+            {
+                Post(() => StartSnip("a request"));
+            }
+
+            Native.PostMessageW(Handle, Native.WM_CLOSE, 0, 0);
+        })
+        {
+            IsBackground = true,
+            Name = "PicKit background signals",
+        };
+
+        thread.Start();
+    }
+
+    private void Post(Action action)
+    {
+        _queue.Enqueue(action);
+        Native.PostMessageW(Handle, RunQueued, 0, 0);
+    }
+
     /// <summary>The whole screen is read at once, before anything on it can change.</summary>
     private void StartSnip(string source)
     {
@@ -206,70 +220,43 @@ internal sealed class BackgroundAgent : AgentWindow
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or ImageException)
         {
             Log.Warn("Could not capture the screen", ex);
-            _notification.Show("Couldn't take that screenshot", "The screen wasn't available.", null, null);
+            Notify("Couldn't take that screenshot", "The screen wasn't available.");
         }
     }
 
     private void OnSnipped(ImageBuffer image)
     {
         var time = DateTime.Now;
-        var thumbnailHeight = NotificationWindow.ThumbnailHeight;
-        _ = Task.Run(() => StoreScreenshot(image, time, thumbnailHeight));
+        _ = Task.Run(() => StoreScreenshot(image, time));
     }
 
-    /// <summary>Puts a screenshot in the inbox as a PNG. The caller owns the returned thumbnail.</summary>
-    internal static (string Path, ImageBuffer Thumbnail) Store(ImageInbox inbox, ImageBuffer image, DateTime time, int thumbnailHeight)
-    {
-        var data = ImageEncoder.Encode(image, new EncodeOptions(ImageFormat.Png));
-        var path = inbox.Add(data, ImageInbox.ScreenshotName(time));
-        var thumbnailWidth = Math.Max(1, image.Width * thumbnailHeight / image.Height);
-        return (path, ImageOps.Resize(image, thumbnailWidth, thumbnailHeight));
-    }
-
-    private void StoreScreenshot(ImageBuffer image, DateTime time, int thumbnailHeight)
+    private void StoreScreenshot(ImageBuffer image, DateTime time)
     {
         using (image)
         {
             try
             {
-                var (path, thumbnail) = Store(_inbox, image, time, thumbnailHeight);
-                Post(() => ShowScreenshot(path, thumbnail));
+                var (path, items) = Store(_inbox, image, time);
+                Post(() => FinishScreenshot(path, items));
             }
             catch (Exception ex)
             {
                 // This runs on a worker thread, where anything unhandled would vanish in silence.
                 Log.Warn("Could not store a screenshot", ex);
-                Post(() => _notification.Show("Couldn't save that screenshot", "Check there's space on this PC.", null, null));
+                Post(() => Notify("Couldn't save that screenshot", "Check there's space on this PC."));
             }
         }
     }
 
-    private void ShowScreenshot(string path, ImageBuffer thumbnail)
+    private void FinishScreenshot(string path, IReadOnlyList<ClipboardItem> items)
     {
-        using (thumbnail)
-        {
-            _notification.Show("Screenshot taken", "Click to save and open.\nSwipe away to decide later.", thumbnail, () => KeepAndOpen(path));
-        }
-    }
+        var isOnClipboard = ClipboardWriter.Set(Handle, items);
+        var detail = isOnClipboard
+            ? "It's on your clipboard. Click to save and open it."
+            : "Click to save and open it.";
 
-    private void KeepAndOpen(string path)
-    {
-        // It may already have been dealt with in the app, while this was on screen.
-        if (!File.Exists(path))
-        {
-            Launch([]);
-            return;
-        }
-
-        try
-        {
-            Launch([_inbox.Keep(path, _settings.SaveFolder)]);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            Log.Warn("Could not save a screenshot", ex);
-            Launch([]);
-        }
+        WindowsToast.Show(ToastContent.Build("Screenshot taken", detail, path, ScreenshotLink.For(Path.GetFileName(path))));
+        TrimMemorySoon();
     }
 
     private void OnDropped(DroppedItems items)
@@ -308,8 +295,6 @@ internal sealed class BackgroundAgent : AgentWindow
             Launch([path]);
         }
     }
-
-    private void ShowNoImage() => _notification.Show("That isn't an image", "PicKit couldn't find a picture in what you dropped.", null, null);
 
     private void Launch(IReadOnlyList<string> paths)
     {

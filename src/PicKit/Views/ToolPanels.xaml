@@ -272,6 +272,7 @@
                 </ListBox.ItemTemplate>
             </ListBox>
 
+            <StackPanel Visibility="{Binding ShowsColor, Converter={StaticResource BooleanToVisibility}}">
             <TextBlock Style="{StaticResource FieldLabel}" Text="Color" />
             <ItemsControl Focusable="False" ItemsSource="{Binding Palette}">
                 <ItemsControl.ItemsPanel>
@@ -296,6 +297,18 @@
                 HorizontalAlignment="Left"
                 Command="{Binding ChooseCustomColorCommand}"
                 Content="More colors..." />
+            </StackPanel>
+
+            <StackPanel Visibility="{Binding ShowsEraserSize, Converter={StaticResource BooleanToVisibility}}">
+                <TextBlock Style="{StaticResource FieldLabel}" Text="{Binding EraserSize, StringFormat=Eraser size: {0:0}}" />
+                <Slider
+                    AutomationProperties.Name="Eraser size"
+                    IsSnapToTickEnabled="True"
+                    Maximum="200"
+                    Minimum="4"
+                    TickFrequency="1"
+                    Value="{Binding EraserSize}" />
+            </StackPanel>
 
             <StackPanel Visibility="{Binding ShowsThickness, Converter={StaticResource BooleanToVisibility}}">
                 <TextBlock Style="{StaticResource FieldLabel}" Text="Thickness" />

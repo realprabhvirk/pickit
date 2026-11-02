@@ -72,10 +72,12 @@ public sealed class ImageInbox
     }
 
     /// <summary>Moves an image out to a real folder and returns where it landed.</summary>
-    public string Keep(string path, string folder)
+    /// <param name="stem">The name to give it, if it's been renamed, without an extension.</param>
+    public string Keep(string path, string folder, string? stem = null)
     {
         Directory.CreateDirectory(folder);
-        var target = FileNames.MakeUnique(Path.Combine(folder, Path.GetFileName(path)));
+        var name = stem is null ? Path.GetFileName(path) : FileNames.Sanitize(stem) + Path.GetExtension(path);
+        var target = FileNames.MakeUnique(Path.Combine(folder, name));
         File.Move(path, target);
         return target;
     }

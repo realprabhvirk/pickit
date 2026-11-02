@@ -111,12 +111,7 @@ internal sealed class SnipOverlay : AgentWindow
         var image = screen.Image;
         _layout = new SnipLayout(new SKRectI(0, 0, image.Width, image.Height), screen.Monitor, screen.Scale);
 
-        _dimmed = image.Clone();
-        using (var canvas = _dimmed.CreateCanvas())
-        {
-            canvas.DrawColor(new SKColor(0, 0, 0, DimAlpha));
-        }
-
+        _dimmed = Dimmed(image);
         _brightImage = image.AsImage();
         _dimImage = _dimmed.AsImage();
         _frame = new LayeredSurface(image.Width, image.Height);
@@ -159,6 +154,17 @@ internal sealed class SnipOverlay : AgentWindow
     {
         Close();
         base.Dispose();
+    }
+
+    /// <summary>A darker copy of the picture. The caller owns the result.</summary>
+    internal static ImageBuffer Dimmed(ImageBuffer image)
+    {
+        var dimmed = image.Clone();
+        using var canvas = dimmed.CreateCanvas();
+
+        // Left to its default, DrawColor replaces the pixels instead of darkening them.
+        canvas.DrawColor(new SKColor(0, 0, 0, DimAlpha), SKBlendMode.SrcOver);
+        return dimmed;
     }
 
     /// <summary>Draws one frame. Separate from the window so it can be checked as a picture.</summary>

@@ -36,6 +36,8 @@
 
   <ItemGroup>
     <Resource Include="Assets\PicKit.ico" />
+    <!-- Windows reads this file for the icon on notifications. -->
+    <None Include="Assets\PicKit.ico" Link="PicKit.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- The model lives outside the source tree. Builds carry it along when it has been fetched. -->

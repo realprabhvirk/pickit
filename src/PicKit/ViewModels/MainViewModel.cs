@@ -15,8 +15,8 @@ using SkiaSharp;
 
 namespace PicKit.ViewModels;
 
-/// <summary>One image in the strip shown when several are open.</summary>
-public sealed record OpenImage(string Path)
+/// <summary>An image in the list of recent files.</summary>
+public sealed record RecentImage(string Path)
 {
     public string Name => System.IO.Path.GetFileName(Path);
 }
@@ -33,6 +33,7 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly ImageInbox _inbox;
     private readonly BackgroundSettingsStore _background;
     private CancellationTokenSource? _noticeTimer;
+    private readonly HashSet<string> _closedWaitingImages = new(StringComparer.OrdinalIgnoreCase);
     private bool _isSyncingSelection;
     private bool _hasHandledLaunch;
 
@@ -52,12 +53,9 @@ public sealed partial class MainViewModel : ObservableObject
     private ObservableObject? _page;
 
     [ObservableProperty]
-    private OpenImage? _selectedImage;
-
-    /// <summary>The inbox file behind the open image, while it hasn't been saved or trashed.</summary>
-    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsWaitingImage))]
-    private string? _waitingPath;
+    [NotifyPropertyChangedFor(nameof(WaitingPath))]
+    private DocumentTab? _selectedTab;
 
     public MainViewModel(
         SettingsStore settings,
@@ -91,13 +89,17 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>Editing commands are hidden while a batch or rename job covers the editor.</summary>
     public bool ShowsEditorCommands => HasImage && !HasPage;
 
-    public ObservableCollection<OpenImage> OpenImages { get; } = [];
+    public ObservableCollection<DocumentTab> Tabs { get; } = [];
 
-    public ObservableCollection<OpenImage> RecentImages { get; } = [];
+    public ObservableCollection<RecentImage> RecentImages { get; } = [];
+
+    public bool HasTabs => Tabs.Count > 0;
 
     public bool HasRecentImages => RecentImages.Count > 0;
 
-    public bool HasMultipleImages => OpenImages.Count > 1;
+    public bool HasMultipleImages => FilesInTabs.Count > 1;
+
+    public string? WaitingPath => SelectedTab?.WaitingPath;
 
     public bool IsWaitingImage => WaitingPath is not null;
 
@@ -123,11 +125,18 @@ public sealed partial class MainViewModel : ObservableObject
         get
         {
             Editor.FlushPendingEdits();
-            return Editor.Document?.IsDirty == true;
+            return Tabs.Any(tab => tab.IsDirty);
         }
     }
 
+    /// <summary>Real files in tabs, which batch jobs can work on.</summary>
+    private List<string> FilesInTabs =>
+        Tabs.Where(tab => tab.Path is not null && !_inbox.Contains(tab.Path)).Select(tab => tab.Path!).ToList();
+
     public string FileName => Editor.Document?.Source.DisplayName ?? string.Empty;
+
+    /// <summary>What the rename bar shows. The file type isn't part of the name people edit.</summary>
+    public string EditableName => Path.GetFileNameWithoutExtension(FileName);
 
     public string StatusText
     {
@@ -198,25 +207,38 @@ public sealed partial class MainViewModel : ObservableObject
             return;
         }
 
-        var waiting = _inbox.Waiting.Where(path => OpenImages.All(image => image.Path != path)).ToList();
-        if (waiting.Count == 0)
+        var waiting = _inbox.Waiting
+            .Where(path => !_closedWaitingImages.Contains(path) && Tabs.All(tab => tab.Path != path))
+            .ToList();
+
+        if (waiting.Count > 0)
+        {
+            _ = OpenInTabsAsync(waiting, showFirst: Editor.Document is null && Page is null);
+        }
+    }
+
+    /// <summary>Renames the open image: the file itself if it has one, or just its name if not.</summary>
+    public void RenameCurrent(string text)
+    {
+        if (Editor.Document is not { } document || SelectedTab is not { } tab)
         {
             return;
         }
 
-        if (Editor.Document is null && Page is null)
+        var stem = FileNames.Sanitize(text.Trim(), fallback: string.Empty);
+        if (stem.Length > 0 && stem != EditableName)
         {
-            SetOpenImages(waiting);
-            _ = LoadAsync(waiting[0]);
-            return;
+            if (document.Source.Path is { } path)
+            {
+                RenameFile(tab, document, path, stem);
+            }
+            else
+            {
+                document.UpdateName(stem + Path.GetExtension(document.Source.DisplayName));
+            }
         }
 
-        foreach (var path in waiting)
-        {
-            OpenImages.Add(new OpenImage(path));
-        }
-
-        OnOpenImagesChanged();
+        RefreshDocumentText();
     }
 
     /// <summary>Opens whatever was dragged in, fetching it first if only its address came.</summary>
@@ -271,31 +293,50 @@ public sealed partial class MainViewModel : ObservableObject
     public void CancelBackgroundWork() => (Page as BatchViewModel)?.CancelIfRunning();
 
     /// <summary>
-    /// Deals with unsaved edits before they're lost. Returns false if the user wants to stay.
+    /// Goes through every tab with unsaved edits before they're lost, as the window closes.
+    /// Returns false if the user wants to stay.
     /// </summary>
     public async Task<bool> ResolveUnsavedChangesAsync()
     {
-        if (Editor.Document is not { } document)
+        foreach (var tab in Tabs.ToList())
         {
-            return true;
+            if (!await ResolveTabAsync(tab))
+            {
+                return false;
+            }
         }
 
-        Editor.FlushPendingEdits();
-        if (!document.IsDirty)
-        {
-            return true;
-        }
-
-        return _dialogs.AskAboutUnsavedChanges(document.Source.DisplayName) switch
-        {
-            UnsavedChoice.Save => await SaveCurrentAsync(),
-            UnsavedChoice.Discard => true,
-            _ => false,
-        };
+        return true;
     }
 
     /// <summary>Checks the clipboard, so the empty window can offer a screenshot that's waiting there.</summary>
     public void RefreshClipboardState() => CanPasteFromClipboard = _clipboard.ContainsImage();
+
+    private void RenameFile(DocumentTab tab, EditorDocument document, string path, string stem)
+    {
+        var target = Path.Combine(Path.GetDirectoryName(path)!, stem + Path.GetExtension(path));
+        var isSameFile = string.Equals(target, path, StringComparison.OrdinalIgnoreCase);
+        if (!isSameFile && File.Exists(target))
+        {
+            ShowNotice("A file with that name is already there");
+            return;
+        }
+
+        try
+        {
+            File.Move(path, target);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log.Warn($"Could not rename {path}", ex);
+            ShowNotice("PicKit couldn't rename this file");
+            return;
+        }
+
+        tab.Path = target;
+        document.UpdateSourcePath(target);
+        RememberRecent(target);
+    }
 
     private bool CanSave() => HasImage && Editor.IsIdle;
 
@@ -336,11 +377,6 @@ public sealed partial class MainViewModel : ObservableObject
             return;
         }
 
-        if (!await ResolveUnsavedChangesAsync())
-        {
-            return;
-        }
-
         var image = _clipboard.ReadImage();
         if (image is null)
         {
@@ -349,9 +385,169 @@ public sealed partial class MainViewModel : ObservableObject
         }
 
         await Editor.WaitUntilIdleAsync();
+        App.EnsurePanelsLoaded();
         Page = null;
-        SetOpenImages([]);
-        ShowDocument(new EditorDocument(image, new DocumentSource(null, ImageFormat.Png, 0)));
+
+        var tab = TakeBlankTab() ?? AddTab(null);
+        tab.Document = new EditorDocument(image, new DocumentSource(null, ImageFormat.Png, 0));
+        await SelectAndShowAsync(tab);
+    }
+
+    /// <summary>A blank tab, or the one already open, instead of a second blank one.</summary>
+    [RelayCommand]
+    private async Task NewTabAsync()
+    {
+        Page = null;
+        await SelectAndShowAsync(Tabs.FirstOrDefault(tab => tab.IsBlank) ?? AddTab(null));
+    }
+
+    [RelayCommand]
+    private async Task CloseTabAsync(DocumentTab tab)
+    {
+        if (await ResolveTabAsync(tab))
+        {
+            if (tab.WaitingPath is { } waiting)
+            {
+                // Closing isn't deciding, so it waits for the next start rather than popping back.
+                _closedWaitingImages.Add(waiting);
+            }
+
+            await RemoveTabAsync(tab);
+        }
+    }
+
+    [RelayCommand]
+    private Task CloseCurrentTabAsync() => SelectedTab is { } tab ? CloseTabAsync(tab) : Task.CompletedTask;
+
+    [RelayCommand]
+    private void NextTab()
+    {
+        if (Tabs.Count > 1 && SelectedTab is { } tab)
+        {
+            SelectedTab = Tabs[(Tabs.IndexOf(tab) + 1) % Tabs.Count];
+        }
+    }
+
+    private DocumentTab? TakeBlankTab() => SelectedTab is { IsBlank: true } tab ? tab : null;
+
+    private DocumentTab AddTab(string? path)
+    {
+        var tab = new DocumentTab(path);
+        Tabs.Add(tab);
+        OnTabsChanged();
+        return tab;
+    }
+
+    private void OnTabsChanged()
+    {
+        OnPropertyChanged(nameof(HasTabs));
+        OnPropertyChanged(nameof(HasMultipleImages));
+        BatchAllCommand.NotifyCanExecuteChanged();
+        RenameAllCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>Gives each image a tab, reusing one if it's already open or the blank one on show.</summary>
+    private async Task OpenInTabsAsync(IReadOnlyList<string> images, bool showFirst = true)
+    {
+        DocumentTab? first = null;
+        foreach (var path in images)
+        {
+            var tab = Tabs.FirstOrDefault(open => string.Equals(open.Path, path, StringComparison.OrdinalIgnoreCase));
+            if (tab is null && first is null && TakeBlankTab() is { } blank)
+            {
+                blank.Path = path;
+                tab = blank;
+                OnTabsChanged();
+            }
+
+            tab ??= AddTab(path);
+            first ??= tab;
+        }
+
+        if (showFirst && first is not null)
+        {
+            await SelectAndShowAsync(first);
+        }
+    }
+
+    private async Task SelectAndShowAsync(DocumentTab tab)
+    {
+        _isSyncingSelection = true;
+        SelectedTab = tab;
+        _isSyncingSelection = false;
+        await ShowTabAsync(tab);
+    }
+
+    private async Task ShowTabAsync(DocumentTab tab)
+    {
+        await Editor.WaitUntilIdleAsync();
+
+        // Whatever's still being typed or marked belongs to the tab being left.
+        Editor.FlushPendingEdits();
+
+        if (tab.Document is null && tab.Path is not null && !await LoadAsync(tab))
+        {
+            await RemoveTabAsync(tab);
+            return;
+        }
+
+        // A quick second click may have moved on while this one was loading.
+        if (ReferenceEquals(tab, SelectedTab))
+        {
+            App.EnsurePanelsLoaded();
+            Editor.Document = tab.Document;
+            RefreshDocumentText();
+        }
+    }
+
+    private async Task RemoveTabAsync(DocumentTab tab)
+    {
+        var index = Tabs.IndexOf(tab);
+        var wasSelected = ReferenceEquals(tab, SelectedTab);
+
+        _isSyncingSelection = true;
+        Tabs.Remove(tab);
+        _isSyncingSelection = false;
+        OnTabsChanged();
+
+        if (wasSelected)
+        {
+            if (Tabs.Count > 0)
+            {
+                await SelectAndShowAsync(Tabs[Math.Min(index, Tabs.Count - 1)]);
+            }
+            else
+            {
+                _isSyncingSelection = true;
+                SelectedTab = null;
+                _isSyncingSelection = false;
+                Editor.Document = null;
+                RefreshDocumentText();
+            }
+        }
+
+        tab.Document?.Dispose();
+    }
+
+    private async Task<bool> ResolveTabAsync(DocumentTab tab)
+    {
+        if (ReferenceEquals(tab, SelectedTab))
+        {
+            Editor.FlushPendingEdits();
+        }
+
+        if (!tab.IsDirty)
+        {
+            return true;
+        }
+
+        await SelectAndShowAsync(tab);
+        return _dialogs.AskAboutUnsavedChanges(tab.Name) switch
+        {
+            UnsavedChoice.Save => await SaveCurrentAsync(),
+            UnsavedChoice.Discard => true,
+            _ => false,
+        };
     }
 
     private Task<bool> SaveCurrentAsync() => IsWaitingImage ? KeepWaitingImageAsync() : _saver.SaveAsync(Editor);
@@ -362,7 +558,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     private async Task<bool> KeepWaitingImageAsync()
     {
-        if (WaitingPath is not { } path || Editor.Document is not { } document)
+        if (SelectedTab is not { WaitingPath: { } path } tab || Editor.Document is not { } document)
         {
             return false;
         }
@@ -372,7 +568,7 @@ public sealed partial class MainViewModel : ObservableObject
         string kept;
         try
         {
-            kept = _inbox.Keep(path, _background.SaveFolder);
+            kept = _inbox.Keep(path, _background.SaveFolder, EditableName);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -381,8 +577,8 @@ public sealed partial class MainViewModel : ObservableObject
             return false;
         }
 
-        WaitingPath = null;
-        ReplaceInStrip(path, kept);
+        tab.WaitingPath = null;
+        tab.Path = kept;
         RememberRecent(kept);
 
         var saved = true;
@@ -408,7 +604,7 @@ public sealed partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task TrashWaitingAsync()
     {
-        if (WaitingPath is not { } path)
+        if (SelectedTab is not { WaitingPath: { } path } tab)
         {
             return;
         }
@@ -425,54 +621,22 @@ public sealed partial class MainViewModel : ObservableObject
             return;
         }
 
-        WaitingPath = null;
-        var remaining = OpenImages.Where(image => image.Path != path).Select(image => image.Path).ToList();
-        SetOpenImages(remaining);
-        if (remaining.Count > 0)
-        {
-            await LoadAsync(remaining[0]);
-        }
-        else
-        {
-            CloseDocument();
-        }
-    }
-
-    private void ReplaceInStrip(string from, string to)
-    {
-        for (var i = 0; i < OpenImages.Count; i++)
-        {
-            if (OpenImages[i].Path == from)
-            {
-                var wasSelected = ReferenceEquals(SelectedImage, OpenImages[i]);
-                _isSyncingSelection = true;
-                OpenImages[i] = new OpenImage(to);
-                if (wasSelected)
-                {
-                    SelectedImage = OpenImages[i];
-                }
-
-                _isSyncingSelection = false;
-            }
-        }
-    }
-
-    private void CloseDocument()
-    {
-        var document = Editor.Document;
-        Editor.Document = null;
-        document?.Dispose();
-        RefreshDocumentText();
+        tab.WaitingPath = null;
+        await RemoveTabAsync(tab);
     }
 
     private void OnDocumentContentChanged()
     {
-        // Save As gave it a real file somewhere else, so the waiting copy has done its job.
-        if (WaitingPath is { } path && Editor.Document?.Source.Path is { } saved)
+        if (SelectedTab is { } tab && Editor.Document?.Source.Path is { } saved)
         {
-            SafeFile.TryDelete(path);
-            WaitingPath = null;
-            ReplaceInStrip(path, saved);
+            // Save As gave it a real file somewhere else, so the waiting copy has done its job.
+            if (tab.WaitingPath is { } waiting)
+            {
+                SafeFile.TryDelete(waiting);
+                tab.WaitingPath = null;
+            }
+
+            tab.Path = saved;
         }
 
         RefreshDocumentText();
@@ -531,16 +695,6 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
-    private void ShowDocument(EditorDocument document, string? waitingPath = null)
-    {
-        App.EnsurePanelsLoaded();
-        var previous = Editor.Document;
-        Editor.Document = document;
-        previous?.Dispose();
-        WaitingPath = waitingPath;
-        RefreshDocumentText();
-    }
-
     private async Task HandleAsync(ShellAction action, IReadOnlyList<string> images)
     {
         switch (action)
@@ -571,14 +725,8 @@ public sealed partial class MainViewModel : ObservableObject
                 return;
         }
 
-        if (!await ResolveUnsavedChangesAsync())
-        {
-            return;
-        }
-
         Page = null;
-        SetOpenImages(images);
-        await LoadAsync(images[0]);
+        await OpenInTabsAsync(images);
         ShowToolFor(action);
     }
 
@@ -587,14 +735,14 @@ public sealed partial class MainViewModel : ObservableObject
         RecentImages.Clear();
         foreach (var path in _recent.Existing)
         {
-            RecentImages.Add(new OpenImage(path));
+            RecentImages.Add(new RecentImage(path));
         }
 
         OnPropertyChanged(nameof(HasRecentImages));
     }
 
     [RelayCommand]
-    private void OpenRecent(OpenImage image) => OpenPaths([image.Path]);
+    private void OpenRecent(RecentImage image) => OpenPaths([image.Path]);
 
     private void ShowToolFor(ShellAction action)
     {
@@ -615,28 +763,6 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
-    private void SetOpenImages(IReadOnlyList<string> images)
-    {
-        OpenImages.Clear();
-        foreach (var path in images)
-        {
-            OpenImages.Add(new OpenImage(path));
-        }
-
-        OnOpenImagesChanged();
-
-        _isSyncingSelection = true;
-        SelectedImage = OpenImages.FirstOrDefault();
-        _isSyncingSelection = false;
-    }
-
-    private void OnOpenImagesChanged()
-    {
-        OnPropertyChanged(nameof(HasMultipleImages));
-        BatchAllCommand.NotifyCanExecuteChanged();
-        RenameAllCommand.NotifyCanExecuteChanged();
-    }
-
     private void ShowBatch(IReadOnlyList<string> images, BatchOperation operation)
     {
         App.EnsurePanelsLoaded();
@@ -652,60 +778,34 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>Keeps the open image and the strip pointing at files that just changed name.</summary>
     private void OnFilesRenamed(IReadOnlyList<RenamedFile> files)
     {
-        for (var i = 0; i < OpenImages.Count; i++)
+        foreach (var tab in Tabs)
         {
-            if (files.FirstOrDefault(file => file.From == OpenImages[i].Path) is { } match)
+            if (files.FirstOrDefault(file => file.From == tab.Path) is { } renamed)
             {
-                var wasSelected = ReferenceEquals(SelectedImage, OpenImages[i]);
-                _isSyncingSelection = true;
-                OpenImages[i] = new OpenImage(match.To);
-                if (wasSelected)
-                {
-                    SelectedImage = OpenImages[i];
-                }
-
-                _isSyncingSelection = false;
+                tab.Path = renamed.To;
+                tab.Document?.UpdateSourcePath(renamed.To);
+                tab.Refresh();
             }
         }
 
-        if (Editor.Document is { Source.Path: { } path } document
-            && files.FirstOrDefault(file => file.From == path) is { } renamed)
-        {
-            document.UpdateSourcePath(renamed.To);
-            RefreshDocumentText();
-        }
+        RefreshDocumentText();
     }
 
-    partial void OnSelectedImageChanged(OpenImage? oldValue, OpenImage? newValue)
+    partial void OnSelectedTabChanged(DocumentTab? value)
     {
-        if (!_isSyncingSelection && newValue is not null && newValue.Path != Editor.Document?.Source.Path)
+        if (!_isSyncingSelection && value is not null)
         {
-            _ = SwitchImageAsync(oldValue, newValue);
-        }
-    }
-
-    private async Task SwitchImageAsync(OpenImage? previous, OpenImage next)
-    {
-        if (await ResolveUnsavedChangesAsync())
-        {
-            await LoadAsync(next.Path);
-        }
-        else
-        {
-            // The user chose to stay, so the strip goes back to the image still on screen.
-            _isSyncingSelection = true;
-            SelectedImage = previous;
-            _isSyncingSelection = false;
+            _ = ShowTabAsync(value);
         }
     }
 
     private bool CanRunOnAllImages() => HasMultipleImages;
 
     [RelayCommand(CanExecute = nameof(CanRunOnAllImages))]
-    private void BatchAll(BatchOperation operation) => ShowBatch(OpenImages.Select(image => image.Path).ToList(), operation);
+    private void BatchAll(BatchOperation operation) => ShowBatch(FilesInTabs, operation);
 
     [RelayCommand(CanExecute = nameof(CanRunOnAllImages))]
-    private void RenameAll() => ShowRename(OpenImages.Select(image => image.Path).ToList());
+    private void RenameAll() => ShowRename(FilesInTabs);
 
     private void ShowTool(EditorTab tab, ToolViewModel tool)
     {
@@ -744,8 +844,10 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
-    private async Task LoadAsync(string path)
+    /// <summary>Loads a tab's picture. Returns false if it couldn't be opened.</summary>
+    private async Task<bool> LoadAsync(DocumentTab tab)
     {
+        var path = tab.Path!;
         IsLoading = true;
         try
         {
@@ -758,9 +860,10 @@ public sealed partial class MainViewModel : ObservableObject
                 ? new DocumentSource(null, decoded.Format, size, decoded.FrameCount, Path.GetFileName(path))
                 : new DocumentSource(path, decoded.Format, size, decoded.FrameCount);
 
-            await Editor.WaitUntilIdleAsync();
+            tab.Document = new EditorDocument(decoded.Pixels, source);
+            tab.WaitingPath = isWaiting ? path : null;
+            tab.Refresh();
 
-            ShowDocument(new EditorDocument(decoded.Pixels, source), isWaiting ? path : null);
             if (!isWaiting)
             {
                 RememberRecent(path);
@@ -772,11 +875,14 @@ public sealed partial class MainViewModel : ObservableObject
                     "This image looks incomplete",
                     "Part of the file seems to be missing, so some of the picture may be blank. Saving keeps only what you can see.");
             }
+
+            return true;
         }
         catch (ImageException ex)
         {
             Log.Warn($"Could not open {path}", ex);
             _dialogs.ShowError("Couldn't open image", ex.Message, ex.Details);
+            return false;
         }
         finally
         {
@@ -790,7 +896,12 @@ public sealed partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowsEditorCommands));
         OnPropertyChanged(nameof(WindowTitle));
         OnPropertyChanged(nameof(FileName));
+        OnPropertyChanged(nameof(EditableName));
         OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(WaitingPath));
+        OnPropertyChanged(nameof(IsWaitingImage));
+        OnPropertyChanged(nameof(HasMultipleImages));
+        SelectedTab?.Refresh();
         SaveCommand.NotifyCanExecuteChanged();
         SaveCopyCommand.NotifyCanExecuteChanged();
         SaveAsCommand.NotifyCanExecuteChanged();

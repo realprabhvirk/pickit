@@ -39,7 +39,7 @@ public abstract record MarkupElement
     protected MarkupStyle ScaledStyle(SKMatrix matrix) =>
         Style with { Thickness = Style.Thickness * UniformScale(matrix) };
 
-    protected static float DistanceToSegment(SKPoint point, SKPoint start, SKPoint end)
+    internal static float DistanceToSegment(SKPoint point, SKPoint start, SKPoint end)
     {
         var lengthSquared = SKPoint.DistanceSquared(start, end);
         if (lengthSquared <= float.Epsilon)

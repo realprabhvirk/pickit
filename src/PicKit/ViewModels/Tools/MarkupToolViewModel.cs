@@ -42,11 +42,16 @@ public sealed partial class MarkupToolViewModel : ToolViewModel, IMarkupHost
     private bool _isApplyingSelectionStyle;
     private MarkupElement? _lastRestyled;
     private long _lastRestyleRevision;
+    private ImmutableArray<MarkupElement> _elementsBeforeErase;
+    private bool _isErasing;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Mode))]
     [NotifyPropertyChangedFor(nameof(ShowsFontSize))]
     [NotifyPropertyChangedFor(nameof(ShowsThickness))]
+    [NotifyPropertyChangedFor(nameof(ShowsOpacity))]
+    [NotifyPropertyChangedFor(nameof(ShowsColor))]
+    [NotifyPropertyChangedFor(nameof(ShowsEraserSize))]
     [NotifyPropertyChangedFor(nameof(Hint))]
     private MarkupModeChoice _selectedMode;
 
@@ -58,6 +63,9 @@ public sealed partial class MarkupToolViewModel : ToolViewModel, IMarkupHost
 
     [ObservableProperty]
     private double _opacity;
+
+    [ObservableProperty]
+    private double _eraserSize = 30;
 
     [ObservableProperty]
     private double _fontSize = 32;
@@ -126,9 +134,13 @@ public sealed partial class MarkupToolViewModel : ToolViewModel, IMarkupHost
 
     public bool ShowsFontSize => Mode == MarkupMode.Text || Selected is TextElement;
 
-    public bool ShowsThickness => !ShowsFontSize;
+    public bool ShowsThickness => !ShowsFontSize && !ShowsEraserSize;
 
-    public bool ShowsOpacity => _showsOpacity;
+    public bool ShowsOpacity => _showsOpacity && !ShowsEraserSize;
+
+    public bool ShowsColor => !ShowsEraserSize;
+
+    public bool ShowsEraserSize => Mode == MarkupMode.Eraser;
 
     public bool HasSelection => Selected is not null;
 
@@ -143,9 +155,12 @@ public sealed partial class MarkupToolViewModel : ToolViewModel, IMarkupHost
     {
         MarkupMode.Text => "Click where the text should go, then type. Click away to finish, or click text to change it.",
         MarkupMode.Highlight => "Drag over what you want to highlight.",
+        MarkupMode.Eraser => "Drag over what you want to erase. Pen and highlight strokes are cut where you rub, and shapes and text are removed whole.",
         MarkupMode.Select => "Click an item to select it, then drag to move it.",
         _ => "Hold Shift for straight lines and perfect shapes.",
     };
+
+    public float EraserRadius => (float)EraserSize * ImageUnit / 2;
 
     public MarkupStyle CurrentStyle => new(ToSkia(Color), (float)Thickness * ImageUnit, (float)Opacity);
 
@@ -230,6 +245,41 @@ public sealed partial class MarkupToolViewModel : ToolViewModel, IMarkupHost
             var final = document.Markups;
             document.PreviewMarkups(_elementsBeforeMove);
             document.SetMarkups("Move markup", final);
+        }
+    }
+
+    /// <summary>Rubs out along a drag, which is recorded as one edit however long it runs.</summary>
+    public void EraseAlong(SKPoint from, SKPoint to)
+    {
+        if (Editor.Document is not { } document)
+        {
+            return;
+        }
+
+        if (!_isErasing)
+        {
+            _isErasing = true;
+            _elementsBeforeErase = document.Markups;
+        }
+
+        var remaining = MarkupEraser.Erase(document.Markups, from, to, EraserRadius);
+        if (remaining != document.Markups)
+        {
+            document.PreviewMarkups(remaining);
+        }
+    }
+
+    public void FinishErase()
+    {
+        if (_isErasing && Editor.Document is { } document)
+        {
+            _isErasing = false;
+            var final = document.Markups;
+            if (final != _elementsBeforeErase)
+            {
+                document.PreviewMarkups(_elementsBeforeErase);
+                document.SetMarkups("Erase", final);
+            }
         }
     }
 

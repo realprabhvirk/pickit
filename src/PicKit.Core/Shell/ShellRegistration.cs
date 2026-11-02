@@ -1,4 +1,5 @@
 using Microsoft.Win32;
+using PicKit.Core.Background;
 
 namespace PicKit.Core.Shell;
 
@@ -96,6 +97,32 @@ public sealed class ShellRegistration
     {
         using var key = _software.OpenSubKey(RunKey, writable: true);
         key?.DeleteValue(AppName, throwOnMissingValue: false);
+    }
+
+    /// <summary>
+    /// Names PicKit to Windows for notifications, and sets up what clicking one opens, so that
+    /// still works from the notification centre after the process that sent it has gone.
+    /// </summary>
+    public void RegisterNotifications()
+    {
+        using (var identity = _classes.CreateSubKey($@"AppUserModelId\{ToastContent.AppId}"))
+        {
+            identity.SetValue("DisplayName", AppName);
+            identity.SetValue("IconUri", Path.Combine(Path.GetDirectoryName(_executable) ?? string.Empty, "PicKit.ico"));
+        }
+
+        using var link = _classes.CreateSubKey(ScreenshotLink.Scheme);
+        link.SetValue(null, "URL:PicKit screenshot");
+        link.SetValue("URL Protocol", string.Empty);
+        using var command = link.CreateSubKey(@"shell\open\command");
+        command.SetValue(null, $"\"{_executable}\" {LaunchRequest.SwitchFor(ShellAction.Notification)} -- \"%1\"");
+    }
+
+    public void UnregisterNotifications()
+    {
+        _classes.DeleteSubKeyTree($@"AppUserModelId\{ToastContent.AppId}", throwOnMissingSubKey: false);
+        DeleteIfEmpty(_classes, "AppUserModelId");
+        _classes.DeleteSubKeyTree(ScreenshotLink.Scheme, throwOnMissingSubKey: false);
     }
 
     /// <summary>Adds the right-click menu on image files.</summary>
@@ -210,6 +237,7 @@ public sealed class ShellRegistration
         UnregisterMenu();
         UnregisterOpenWith();
         UnregisterBackground();
+        UnregisterNotifications();
     }
 
     private static void DeleteIfEmpty(RegistryKey root, string path)

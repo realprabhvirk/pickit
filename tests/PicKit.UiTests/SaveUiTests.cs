@@ -152,18 +152,19 @@ public class SaveUiTests
     });
 
     [Fact]
-    public void Opening_another_image_protects_unsaved_edits() => UiHarness.Run(async harness =>
+    public void Reopening_the_same_image_goes_back_to_its_tab_with_edits_intact() => UiHarness.Run(async harness =>
     {
         await TestFiles.OpenPhoto(harness, 400, 200);
         await Rotate(harness);
         var document = harness.ViewModel.Editor.Document;
 
-        harness.Dialogs.UnsavedAnswer = UnsavedChoice.Cancel;
         harness.ViewModel.OpenPaths([PhotoPath(harness)]);
+        harness.WaitFor(() => !harness.ViewModel.IsLoading);
         harness.Pump();
 
-        Assert.Equal(1, harness.Dialogs.UnsavedPrompts);
+        Assert.Equal(0, harness.Dialogs.UnsavedPrompts);
         Assert.Same(document, harness.ViewModel.Editor.Document);
+        Assert.Single(harness.ViewModel.Tabs);
         Assert.True(document!.IsDirty);
     });
 

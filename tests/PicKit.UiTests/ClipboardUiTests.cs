@@ -206,12 +206,15 @@ public class ClipboardUiTests
             harness.Clipboard.Contents = ClipboardCodec.Encode(shot, CopyMode.Standard, SKColors.White);
         }
 
-        harness.Dialogs.UnsavedAnswer = PicKit.Services.UnsavedChoice.Cancel;
         var document = editor.Document;
         await harness.ViewModel.PasteCommand.ExecuteAsync(null);
         harness.Pump();
 
-        Assert.Same(document, editor.Document);
+        // The paste gets its own tab, so the edits are still there and nothing had to be asked.
+        Assert.Equal(0, harness.Dialogs.UnsavedPrompts);
+        Assert.NotSame(document, editor.Document);
+        Assert.Same(document, harness.ViewModel.Tabs[0].Document);
+        Assert.True(document!.IsDirty);
     });
 
     [Theory]

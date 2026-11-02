@@ -4,8 +4,8 @@
 
 | Suite | Tests | Covers |
 |---|---|---|
-| `tests/PicKit.Tests` | 399 | Resize, crop, compression, conversion, undo, rename, batch, metadata, clipboard formats, Explorer registration |
-| `tests/PicKit.UiTests` | 241 | The real window end to end: every tool, save flows, prompts, batch, rename, display scaling, accessibility names |
+| `tests/PicKit.Tests` | 428 | Resize, crop, compression, conversion, undo, rename, batch, metadata, clipboard formats, Explorer registration |
+| `tests/PicKit.UiTests` | 265 | The real window end to end: every tool, save flows, prompts, batch, rename, display scaling, accessibility names |
 
 The UI tests run off-screen, never take focus, and use an in-memory clipboard, so they can run while the PC is being used. Registry tests write only under a throwaway key.
 
@@ -79,17 +79,23 @@ These need a person, or a real install, and have **not** been done yet.
 - [ ] While typing text, drag Font size and pick a font: the box updates and typing carries on
 - [ ] Click text, then press Delete: it goes in one press
 - [ ] Select tool: drag moves around a zoomed image, and both scroll bars work
+- [ ] Opening a second image adds a tab, and the first keeps its edits and undo
+- [ ] The + button, Ctrl+T, Ctrl+W and Ctrl+Tab
+- [ ] Typing in the rename bar and pressing Enter renames the file
+- [ ] The eraser cuts pen and highlight strokes, and removes shapes and text whole
 
 **Snipping and the ribbon**
 
 - [ ] Ctrl+Alt+S, pressed on the real keyboard, freezes and dims the screen
+- [ ] The screen dims, and the dragged area shows bright
 - [ ] Dragging keeps that area, and Full screen keeps the whole monitor
+- [ ] A snip lands on the clipboard, and pastes into Word, Teams and Paint
+- [ ] It appears as a Windows notification with the picture, silently
+- [ ] It stays in the notification centre, and clicking it there saves and opens it
 - [ ] Esc or right-click cancels, and the app in use keeps focus throughout
 - [ ] Win+Print Screen still works as normal
 - [ ] With two monitors, the bar appears on the one under the mouse, and a snip can cross both
-- [ ] Click the notification: the screenshot is saved and opens in PicKit
-- [ ] Swipe it away, then open PicKit: the screenshot comes up first, with Save and Trash
-- [ ] Ignore it: same result
+- [ ] Dismiss the notification, then open PicKit: the screenshot comes up first, with Save and Trash
 - [ ] The ribbon opens on hover, closes when the pointer leaves, and clicks pass through around it
 - [ ] Drag an image onto the ribbon from Chrome and Edge, including one inside a link
 - [ ] Drag an image onto the ribbon from File Explorer

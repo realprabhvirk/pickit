@@ -24,10 +24,14 @@
         <KeyBinding Command="{Binding Editor.CancelCommand}" Gesture="Escape" />
         <KeyBinding Command="{Binding Editor.ApplyPendingCommand}" Gesture="Enter" />
         <KeyBinding Command="{Binding Editor.DeleteSelectionCommand}" Gesture="Delete" />
+        <KeyBinding Command="{Binding NewTabCommand}" Gesture="Ctrl+T" />
+        <KeyBinding Command="{Binding CloseCurrentTabCommand}" Gesture="Ctrl+W" />
+        <KeyBinding Command="{Binding NextTabCommand}" Gesture="Ctrl+Tab" />
     </Window.InputBindings>
 
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
@@ -91,14 +95,34 @@
                     </StackPanel>
                 </StackPanel>
 
-                <TextBlock
+                <Grid
                     Grid.Column="1"
+                    MaxWidth="320"
                     Margin="12,0"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
-                    Text="{Binding FileName}"
-                    TextTrimming="CharacterEllipsis"
-                    Visibility="{Binding ShowsEditorCommands, Converter={StaticResource BooleanToVisibility}}" />
+                    Visibility="{Binding ShowsEditorCommands, Converter={StaticResource BooleanToVisibility}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        Margin="0,0,6,0"
+                        FontSize="12"
+                        Opacity="0.7"
+                        Style="{StaticResource IconText}"
+                        Text="&#xE70F;" />
+                    <TextBox
+                        x:Name="RenameBar"
+                        Grid.Column="1"
+                        MinWidth="160"
+                        AutomationProperties.Name="Image name"
+                        LostKeyboardFocus="OnRenameBarLostFocus"
+                        PreviewKeyDown="OnRenameBarKeyDown"
+                        Text="{Binding EditableName, Mode=OneWay}"
+                        TextAlignment="Center"
+                        ToolTip="Rename this image" />
+                </Grid>
 
                 <StackPanel
                     Grid.Column="2"
@@ -180,8 +204,71 @@
             </Grid>
         </Border>
 
+        <!--  Tabs  -->
+        <Border
+            Grid.Row="1"
+            Padding="6,3,6,0"
+            BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+            BorderThickness="0,0,0,1"
+            Visibility="{Binding HasTabs, Converter={StaticResource BooleanToVisibility}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" MaxWidth="1600" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <ListBox
+                    x:Name="TabStrip"
+                    AutomationProperties.Name="Open images"
+                    ItemContainerStyle="{StaticResource DocumentTabItem}"
+                    ItemsSource="{Binding Tabs}"
+                    ScrollViewer.HorizontalScrollBarVisibility="Hidden"
+                    ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                    SelectedItem="{Binding SelectedTab}"
+                    SelectionChanged="OnTabSelected"
+                    Style="{StaticResource PlainList}">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <DockPanel AutomationProperties.Name="{Binding Name}" ToolTip="{Binding Name}">
+                                <Button
+                                    Margin="6,0,0,0"
+                                    AutomationProperties.Name="Close tab"
+                                    Command="{Binding DataContext.CloseTabCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                    CommandParameter="{Binding}"
+                                    DockPanel.Dock="Right"
+                                    Style="{StaticResource TabCloseButton}"
+                                    ToolTip="Close tab (Ctrl+W)">
+                                    <TextBlock FontSize="9" Style="{StaticResource IconText}" Text="&#xE711;" />
+                                </Button>
+                                <TextBlock
+                                    MaxWidth="170"
+                                    VerticalAlignment="Center"
+                                    Text="{Binding Title}"
+                                    TextTrimming="CharacterEllipsis" />
+                            </DockPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <Button
+                    Grid.Column="1"
+                    Margin="4,0,0,3"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Center"
+                    AutomationProperties.Name="New tab"
+                    Command="{Binding NewTabCommand}"
+                    Style="{StaticResource CommandButton}"
+                    ToolTip="New tab (Ctrl+T)">
+                    <TextBlock FontSize="12" Style="{StaticResource IconText}" Text="&#xE710;" />
+                </Button>
+            </Grid>
+        </Border>
+
         <!--  Body  -->
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
@@ -435,7 +522,7 @@
 
         <!--  A batch or rename job takes over the body of the window  -->
         <Border
-            Grid.Row="1"
+            Grid.Row="2"
             Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
             Visibility="{Binding HasPage, Converter={StaticResource BooleanToVisibility}}">
             <ContentControl Content="{Binding Page}" Focusable="False" />
@@ -443,7 +530,7 @@
 
         <!--  Shown when several images are open  -->
         <Border
-            Grid.Row="2"
+            Grid.Row="3"
             Padding="8,4"
             BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
             BorderThickness="0,1,0,0"
@@ -470,27 +557,12 @@
                         Command="{Binding RenameAllCommand}"
                         Content="Rename all" />
                 </StackPanel>
-                <ListBox
-                    AutomationProperties.Name="Open images"
-                    DisplayMemberPath="Name"
-                    ItemContainerStyle="{StaticResource ChipItem}"
-                    ItemsSource="{Binding OpenImages}"
-                    ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                    ScrollViewer.VerticalScrollBarVisibility="Disabled"
-                    SelectedItem="{Binding SelectedImage}"
-                    Style="{StaticResource PlainList}">
-                    <ListBox.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <VirtualizingStackPanel Orientation="Horizontal" />
-                        </ItemsPanelTemplate>
-                    </ListBox.ItemsPanel>
-                </ListBox>
             </DockPanel>
         </Border>
 
         <!--  Status bar  -->
         <Border
-            Grid.Row="3"
+            Grid.Row="4"
             Padding="12,2"
             BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
             BorderThickness="0,1,0,0">

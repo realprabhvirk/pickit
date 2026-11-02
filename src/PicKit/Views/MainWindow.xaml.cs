@@ -129,6 +129,41 @@ public partial class MainWindow : Window
         Canvas.ScrollTo(horizontal, vertical);
     }
 
+    private void OnTabSelected(object sender, SelectionChangedEventArgs e)
+    {
+        if (TabStrip.SelectedItem is { } tab)
+        {
+            TabStrip.ScrollIntoView(tab);
+        }
+    }
+
+    private void OnRenameBarKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            CommitRename();
+            Canvas.Focus();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape)
+        {
+            RefreshRenameBar();
+            Canvas.Focus();
+            e.Handled = true;
+        }
+    }
+
+    private void OnRenameBarLostFocus(object sender, KeyboardFocusChangedEventArgs e) => CommitRename();
+
+    private void CommitRename()
+    {
+        _viewModel.RenameCurrent(RenameBar.Text);
+        RefreshRenameBar();
+    }
+
+    /// <summary>Puts the real name back, in case what was typed couldn't be used.</summary>
+    private void RefreshRenameBar() => RenameBar.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
+
     private void OnOpenSettings(object sender, RoutedEventArgs e)
     {
         var settings = new SettingsWindow { Owner = this, DataContext = _viewModel.CreateSettings() };

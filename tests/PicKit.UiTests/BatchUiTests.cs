@@ -149,7 +149,7 @@ public class BatchUiTests
     });
 
     [Fact]
-    public void Opening_several_images_shows_a_strip_to_move_between_them() => UiHarness.Run(async harness =>
+    public void Opening_several_images_gives_each_a_tab_to_move_between() => UiHarness.Run(async harness =>
     {
         var paths = await WritePhotos(harness, 3);
 
@@ -159,16 +159,16 @@ public class BatchUiTests
         harness.Screenshot("image-strip");
 
         Assert.True(harness.ViewModel.HasMultipleImages);
-        Assert.Equal(3, harness.ViewModel.OpenImages.Count);
+        Assert.Equal(3, harness.ViewModel.Tabs.Count);
         Assert.Equal(paths[0], harness.ViewModel.Editor.Document!.Source.Path);
 
-        harness.ViewModel.SelectedImage = harness.ViewModel.OpenImages[2];
+        harness.ViewModel.SelectedTab = harness.ViewModel.Tabs[2];
         harness.WaitFor(() => harness.ViewModel.Editor.Document!.Source.Path == paths[2] && !harness.ViewModel.IsLoading);
         Assert.Equal(paths[2], harness.ViewModel.Editor.Document!.Source.Path);
     });
 
     [Fact]
-    public void Switching_images_with_unsaved_edits_asks_first_and_can_stay() => UiHarness.Run(async harness =>
+    public void Switching_images_keeps_unsaved_edits_without_asking() => UiHarness.Run(async harness =>
     {
         var paths = await WritePhotos(harness, 2);
         harness.ViewModel.Handle(new LaunchRequest(ShellAction.Open, paths));
@@ -177,13 +177,11 @@ public class BatchUiTests
         await editor.Rotate.RotateRightCommand.ExecuteAsync(null);
         harness.Pump();
 
-        harness.Dialogs.UnsavedAnswer = PicKit.Services.UnsavedChoice.Cancel;
-        harness.ViewModel.SelectedImage = harness.ViewModel.OpenImages[1];
-        harness.Pump();
+        harness.ViewModel.SelectedTab = harness.ViewModel.Tabs[1];
+        harness.WaitFor(() => editor.Document!.Source.Path == paths[1] && !harness.ViewModel.IsLoading);
 
-        Assert.Equal(1, harness.Dialogs.UnsavedPrompts);
-        Assert.Equal(paths[0], editor.Document!.Source.Path);
-        Assert.Same(harness.ViewModel.OpenImages[0], harness.ViewModel.SelectedImage);
+        Assert.Equal(0, harness.Dialogs.UnsavedPrompts);
+        Assert.True(harness.ViewModel.Tabs[0].IsDirty);
     });
 
     [Fact]
@@ -206,7 +204,7 @@ public class BatchUiTests
         harness.ViewModel.Handle(new LaunchRequest(ShellAction.Open, [harness.Folder]));
         harness.WaitFor(() => harness.ViewModel.HasImage && !harness.ViewModel.IsLoading);
 
-        Assert.Equal(2, harness.ViewModel.OpenImages.Count);
+        Assert.Equal(2, harness.ViewModel.Tabs.Count);
     });
 
     [Fact]
@@ -276,6 +274,6 @@ public class BatchUiTests
 
         var expected = Path.Combine(harness.Folder, "Trip_001.png");
         Assert.Equal(expected, harness.ViewModel.Editor.Document!.Source.Path);
-        Assert.Equal(expected, harness.ViewModel.OpenImages[0].Path);
+        Assert.Equal(expected, harness.ViewModel.Tabs[0].Path);
     });
 }

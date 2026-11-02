@@ -8,8 +8,14 @@ namespace PicKit.Background;
 public sealed class KeyChordWatcher
 {
     private const int ControlKey = 0x11;
+    private const int LeftControlKey = 0xA2;
+    private const int RightControlKey = 0xA3;
     private const int AltKey = 0x12;
+    private const int LeftAltKey = 0xA4;
+    private const int RightAltKey = 0xA5;
     private const int ShiftKey = 0x10;
+    private const int LeftShiftKey = 0xA0;
+    private const int RightShiftKey = 0xA1;
     private const int LeftWindowsKey = 0x5B;
     private const int RightWindowsKey = 0x5C;
     private const int LetterKey = 'S';
@@ -31,15 +37,15 @@ public sealed class KeyChordWatcher
     {
         switch (virtualKey)
         {
-            case ControlKey:
+            case ControlKey or LeftControlKey or RightControlKey:
                 _controlDownAt = isDown ? now : null;
                 RefreshHeldKeys(now);
                 return false;
-            case AltKey:
+            case AltKey or LeftAltKey or RightAltKey:
                 _altDownAt = isDown ? now : null;
                 RefreshHeldKeys(now);
                 return false;
-            case ShiftKey:
+            case ShiftKey or LeftShiftKey or RightShiftKey:
                 _isShiftDown = isDown;
                 return false;
             case LeftWindowsKey or RightWindowsKey:

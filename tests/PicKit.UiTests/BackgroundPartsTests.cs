@@ -13,60 +13,19 @@ namespace PicKit.UiTests;
 /// <summary>The helper's parts, tested without ever starting it or showing its windows.</summary>
 public class BackgroundPartsTests
 {
-    [Theory]
-    [InlineData(1000, 1002, SwipeOutcome.Click)]
-    [InlineData(1000, 1006, SwipeOutcome.Click)]
-    [InlineData(1000, 1050, SwipeOutcome.SnapBack)]
-    [InlineData(1000, 1200, SwipeOutcome.Dismiss)]
-    [InlineData(1000, 800, SwipeOutcome.Dismiss)]
-    public void A_click_is_told_from_a_swipe(int from, int to, SwipeOutcome expected)
+    [Fact]
+    public void Windows_accepts_the_notification_we_build()
     {
-        var swipe = new SwipeTracker(340);
-        swipe.Press(from);
-        swipe.Move(to);
+        var link = ScreenshotLink.For("Screenshot 2026-11-02 180312.png");
+        var xml = ToastContent.Build("Screenshot taken", "It's on your clipboard. Click to save & open it.", @"C:\Temp\a b.png", link);
 
-        Assert.Equal(expected, swipe.Release());
+        // Built by Windows itself but never shown, so nothing appears on screen.
+        Assert.NotNull(WindowsToast.Create(xml));
     }
 
     [Fact]
-    public void Wandering_off_and_coming_back_is_not_a_click()
-    {
-        var swipe = new SwipeTracker(340);
-        swipe.Press(1000);
-        swipe.Move(1100);
-        swipe.Move(1000);
-
-        Assert.Equal(SwipeOutcome.SnapBack, swipe.Release());
-    }
-
-    [Fact]
-    public void The_window_follows_the_pointer_while_swiping()
-    {
-        var swipe = new SwipeTracker(340);
-        swipe.Press(1000);
-
-        Assert.Equal(120, swipe.Move(1120));
-        Assert.Equal(-40, swipe.Move(960));
-    }
-
-    [Fact]
-    public void The_notification_draws_as_a_picture()
-    {
-        using var thumbnail = ImageBuffer.Create(160, 100);
-        thumbnail.Bitmap.Erase(SKColors.SteelBlue);
-        const int scale = 2;
-        var (width, height) = (NotificationWindow.WidthDip * scale, NotificationWindow.HeightDip * scale);
-
-        using var bitmap = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul));
-        using (var canvas = new SKCanvas(bitmap))
-        {
-            NotificationWindow.Paint(canvas, width, height, scale, "Screenshot taken", "Click to save and open.\nSwipe away to decide later.", thumbnail);
-        }
-
-        Save(bitmap, "notification.png");
-        Assert.Equal(0, bitmap.GetPixel(0, 0).Alpha);
-        Assert.Equal(SKColors.SteelBlue, bitmap.GetPixel(60, height / 2));
-    }
+    public void Windows_turns_down_a_broken_notification() =>
+        Assert.Throws<COMException>(() => WindowsToast.Create("<toast><not closed"));
 
     [Fact]
     public void The_drop_target_is_reachable_from_windows_as_the_real_interface()
@@ -174,22 +133,28 @@ public class BackgroundPartsTests
     }
 
     [Fact]
-    public void A_screenshot_is_stored_as_an_exact_png_with_a_small_thumbnail()
+    public void A_screenshot_is_stored_exactly_and_is_ready_for_the_clipboard()
     {
         var folder = Path.Combine(Path.GetTempPath(), "PicKitTests", Guid.NewGuid().ToString("N"));
         var inbox = new ImageInbox(folder);
         using var screen = ImageBuffer.Create(1920, 1200);
         screen.Bitmap.Erase(SKColors.Teal);
 
-        var (path, thumbnail) = BackgroundAgent.Store(inbox, screen, new DateTime(2026, 11, 2, 18, 3, 12), 128);
-        using (thumbnail)
-        {
-            Assert.Equal("Screenshot 2026-11-02 180312.png", Path.GetFileName(path));
-            Assert.Equal((204, 128), (thumbnail.Width, thumbnail.Height));
+        var (path, items) = BackgroundAgent.Store(inbox, screen, new DateTime(2026, 11, 2, 18, 3, 12));
 
-            using var stored = ImageDecoder.Decode(path);
+        Assert.Equal("Screenshot 2026-11-02 180312.png", Path.GetFileName(path));
+        Assert.Contains(items, item => item.Format == ClipboardCodec.PngFormat);
+        Assert.Contains(items, item => item.Format == ClipboardCodec.DibFormat);
+
+        using (var stored = ImageDecoder.Decode(path))
+        {
             Assert.Equal(ImageFormat.Png, stored.Format);
             Assert.True(screen.Pixels.SequenceEqual(stored.Pixels.Pixels));
+        }
+
+        using (var fromClipboard = ClipboardCodec.Decode(format => items.FirstOrDefault(item => item.Format == format)?.Data))
+        {
+            Assert.True(screen.Pixels.SequenceEqual(fromClipboard!.Pixels));
         }
 
         Directory.Delete(folder, recursive: true);

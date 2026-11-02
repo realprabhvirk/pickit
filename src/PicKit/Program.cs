@@ -30,6 +30,9 @@ public static class Program
             case ShellAction.TakeScreenshot:
                 BackgroundSignals.TakeScreenshot();
                 return 0;
+            case ShellAction.Notification:
+                request = ScreenshotLink.Resolve(request.Paths.FirstOrDefault() ?? string.Empty, new ImageInbox(), new BackgroundSettingsStore().SaveFolder);
+                break;
         }
 
         using var channel = new InstanceChannel(InstanceName);

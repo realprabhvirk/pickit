@@ -1,6 +1,7 @@
 using System.IO;
 using PicKit.Background;
 using PicKit.Core.Imaging;
+using PicKit.ViewModels.Tools;
 using SkiaSharp;
 
 namespace PicKit.UiTests;
@@ -157,11 +158,7 @@ public class SnipLayoutTests
     {
         using var photo = ImageBuffer.Create(1280, 800);
         photo.Bitmap.Erase(SKColors.SteelBlue);
-        using var dimmed = photo.Clone();
-        using (var canvas = dimmed.CreateCanvas())
-        {
-            canvas.DrawColor(new SKColor(0, 0, 0, 120));
-        }
+        using var dimmed = SnipOverlay.Dimmed(photo);
 
         using var bright = photo.AsImage();
         using var dim = dimmed.AsImage();
@@ -176,7 +173,13 @@ public class SnipLayoutTests
 
         TestPictures.Save(bitmap, "snip-overlay.png");
         Assert.Equal(SKColors.SteelBlue, bitmap.GetPixel(600, 400));
-        Assert.NotEqual(SKColors.SteelBlue, bitmap.GetPixel(100, 400));
+
+        // Outside the snip it's the same picture, only darker. It must never lose its colour or
+        // turn see-through, because the window drawing this ignores alpha and would show black.
+        var outside = bitmap.GetPixel(100, 400);
+        Assert.Equal(255, outside.Alpha);
+        Assert.InRange(outside.Blue, 60, 120);
+        Assert.True(outside.Blue > outside.Red);
     }
 }
 

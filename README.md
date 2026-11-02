@@ -10,7 +10,8 @@ No accounts, no cloud, no projects, no library. Everything happens on your PC, a
 
 | | |
 |---|---|
-| **Edit** | Crop, resize in pixels, mm or cm, rotate, flip, pen, arrow, line, rectangle, circle, text with preset fonts, highlight |
+| **Edit** | Crop, resize in pixels, mm or cm, rotate, flip, pen, arrow, line, rectangle, circle, text with preset fonts, highlight, eraser |
+| **Tabs** | Each image opens in its own tab, with its own edits and undo. Rename it from the bar at the top |
 | **Privacy** | Blur and pixelate by box, rounded box, circle or brush, and redaction that truly replaces pixels. View and remove camera, location and author details |
 | **Remove background** | Automatic, on your PC, with Keep and Remove brushes to fix the result |
 | **Compress and convert** | PNG, JPEG and WebP, by quality or to a target file size |
@@ -18,7 +19,7 @@ No accounts, no cloud, no projects, no library. Everything happens on your PC, a
 | **Many images** | Batch compress, resize, convert and rename, with a preview, cancel and undo |
 | **Clipboard** | Copy without saving, and paste screenshots straight in |
 | **File Explorer** | Right-click images, or use Open with |
-| **Snipping** | Ctrl+Alt+S freezes the screen, like Snip & Sketch. Drag over any part or take it all, with no sound or clipboard change. Save it, edit it or trash it |
+| **Snipping** | Ctrl+Alt+S freezes the screen, like Snip & Sketch. Drag over any part or take it all, with no sound. It lands on the clipboard and in the notification centre, ready to save, edit or trash |
 | **Ribbon** | A thin strip on the edge of the screen that opens when pointed at. Drop an image on it from a web page or File Explorer, or start a snip |
 
 Originals are safe by design. Files are written to a temporary name and swapped in only when complete, replacing a file always asks first, and batch jobs never overwrite anything.

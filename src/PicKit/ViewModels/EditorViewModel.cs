@@ -70,6 +70,7 @@ public sealed partial class EditorViewModel : ObservableObject
                 new(MarkupMode.Rectangle, "Rectangle", "\uE739"),
                 new(MarkupMode.Ellipse, "Circle", "\uEA3A"),
                 new(MarkupMode.Select, "Select", "\uE7C9"),
+                new(MarkupMode.Eraser, "Eraser", "\uE75C"),
             ],
             red,
             defaultThickness: 4,
@@ -91,7 +92,7 @@ public sealed partial class EditorViewModel : ObservableObject
             colors,
             "Highlight",
             "\uE7E6",
-            [new(MarkupMode.Highlight, "Highlight", "\uE7E6")],
+            [new(MarkupMode.Highlight, "Highlight", "\uE7E6"), new(MarkupMode.Eraser, "Eraser", "\uE75C")],
             Color.FromRgb(0xFF, 0xE0, 0x33),
             defaultThickness: 24,
             defaultOpacity: 0.6);

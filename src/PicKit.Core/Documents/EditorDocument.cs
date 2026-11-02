@@ -143,7 +143,10 @@ public sealed class EditorDocument : IDisposable
     }
 
     /// <summary>Follows the file after a rename. The picture itself is unaffected.</summary>
-    public void UpdateSourcePath(string path) => Source = Source with { Path = path };
+    public void UpdateSourcePath(string path) => Source = Source with { Path = path, Name = null };
+
+    /// <summary>Names an image that has no file of its own yet.</summary>
+    public void UpdateName(string name) => Source = Source with { Name = name };
 
     /// <summary>The picture as exported: pixels with all markup burned in. The caller owns the result.</summary>
     public ImageBuffer RenderFlattened()

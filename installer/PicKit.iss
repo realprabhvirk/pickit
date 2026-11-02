@@ -2,7 +2,7 @@
 ; user's own profile is touched. Build with tools/build-installer.ps1.
 
 #define AppName "PicKit"
-#define AppVersion "1.2.0"
+#define AppVersion "1.3.0"
 #define Publisher "PicKit"
 #define PublishDir GetEnv("LOCALAPPDATA") + "\PicKit-build\publish"
 #define OutputFolder GetEnv("LOCALAPPDATA") + "\PicKit-build\installer"
@@ -51,7 +51,7 @@ Name: "{userdesktop}\{#AppName}"; Filename: "{app}\PicKit.exe"; Tasks: desktopic
 
 [Run]
 Filename: "{app}\PicKit.exe"; Parameters: "--register-background"; Tasks: background; Flags: runhidden
-Filename: "{app}\PicKit.exe"; Parameters: "--background"; Tasks: background; Flags: runhidden nowait
+Filename: "{app}\PicKit.exe"; Parameters: "--background"; Tasks: background; Flags: nowait
 Filename: "{app}\PicKit.exe"; Parameters: "--register-menu"; Tasks: explorermenu; Flags: runhidden
 Filename: "{app}\PicKit.exe"; Parameters: "--register-open-with"; Tasks: openwith; Flags: runhidden
 Filename: "{app}\PicKit.exe"; Description: "Open PicKit"; Flags: nowait postinstall skipifsilent

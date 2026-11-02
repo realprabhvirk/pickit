@@ -127,6 +127,116 @@ public class ImageInboxTests
     }
 }
 
+public class ScreenshotNotificationTests
+{
+    private static byte[] Png()
+    {
+        using var image = TestImages.Solid(32, 32, SkiaSharp.SKColors.Teal);
+        return ImageEncoder.Encode(image, new EncodeOptions(ImageFormat.Png));
+    }
+
+    [Fact]
+    public void A_link_carries_the_name_there_and_back()
+    {
+        const string name = "Screenshot 2026-11-02 180312.png";
+
+        Assert.Equal(name, ScreenshotLink.NameIn(ScreenshotLink.For(name)));
+    }
+
+    [Theory]
+    [InlineData("pickit:screenshot?name=..%5C..%5Csecrets.png")]
+    [InlineData("pickit:screenshot?name=..%2Fsecrets.png")]
+    [InlineData("pickit:screenshot?name=C%3A%5CWindows%5Cwin.png")]
+    [InlineData("pickit:screenshot?name=evil.exe")]
+    [InlineData("pickit:screenshot?name=")]
+    [InlineData("pickit:format?drive=c")]
+    [InlineData("https://example.com/a.png")]
+    [InlineData("")]
+    public void A_link_a_web_page_made_up_gets_nowhere(string link) => Assert.Null(ScreenshotLink.NameIn(link));
+
+    [Fact]
+    public void Clicking_saves_a_waiting_screenshot_then_opens_it()
+    {
+        var inbox = new ImageInbox(TestImages.TempFolder());
+        var folder = TestImages.TempFolder();
+        var path = inbox.Add(Png(), "shot.png");
+
+        var request = ScreenshotLink.Resolve(ScreenshotLink.For("shot.png"), inbox, folder);
+
+        Assert.Equal(ShellAction.Open, request.Action);
+        Assert.Equal([Path.Combine(folder, "shot.png")], request.Paths);
+        Assert.True(File.Exists(request.Paths[0]));
+        Assert.False(File.Exists(path));
+    }
+
+    [Fact]
+    public void Clicking_again_opens_the_copy_already_saved()
+    {
+        var inbox = new ImageInbox(TestImages.TempFolder());
+        var folder = TestImages.TempFolder();
+        File.WriteAllBytes(Path.Combine(folder, "shot.png"), Png());
+
+        var request = ScreenshotLink.Resolve(ScreenshotLink.For("shot.png"), inbox, folder);
+
+        Assert.Equal([Path.Combine(folder, "shot.png")], request.Paths);
+    }
+
+    [Fact]
+    public void Clicking_one_that_has_gone_just_opens_the_app()
+    {
+        var request = ScreenshotLink.Resolve(ScreenshotLink.For("shot.png"), new ImageInbox(TestImages.TempFolder()), TestImages.TempFolder());
+
+        Assert.Equal(ShellAction.Open, request.Action);
+        Assert.Empty(request.Paths);
+    }
+
+    [Fact]
+    public void A_bad_link_opens_nothing_but_the_app()
+    {
+        var folder = TestImages.TempFolder();
+        File.WriteAllBytes(Path.Combine(folder, "private.png"), Png());
+
+        var request = ScreenshotLink.Resolve("pickit:screenshot?name=..%5Cprivate.png", new ImageInbox(TestImages.TempFolder()), folder);
+
+        Assert.Empty(request.Paths);
+    }
+
+    [Fact]
+    public void A_notification_is_silent_and_carries_its_link_and_picture()
+    {
+        var xml = ToastContent.Build("Screenshot taken", "Click it", @"C:\Temp\a b.png", "pickit:screenshot?name=a.png");
+
+        Assert.Contains("<audio silent=\"true\"/>", xml);
+        Assert.Contains("activationType=\"protocol\"", xml);
+        Assert.Contains("launch=\"pickit:screenshot?name=a.png\"", xml);
+        Assert.Contains("file:///C:/Temp/a%20b.png", xml);
+    }
+
+    [Fact]
+    public void Text_cannot_break_out_of_the_notification()
+    {
+        var xml = ToastContent.Build("<b>", "a & \"b\"");
+
+        Assert.Contains("&lt;b&gt;", xml);
+        Assert.Contains("&amp;", xml);
+        Assert.DoesNotContain("<b>", xml);
+    }
+
+    [Theory]
+    [InlineData("--notification", ShellAction.Notification)]
+    public void The_notification_switch_is_recognised(string argument, ShellAction expected) =>
+        Assert.Equal(expected, LaunchRequest.Parse([argument, "--", "pickit:screenshot?name=a.png"]).Action);
+
+    [Fact]
+    public void A_link_cannot_pass_itself_off_as_a_switch()
+    {
+        var request = LaunchRequest.Parse(["--notification", "--", "--unregister"]);
+
+        Assert.Equal(ShellAction.Notification, request.Action);
+        Assert.Equal(["--unregister"], request.Paths);
+    }
+}
+
 public class ImageSnifferTests
 {
     [Theory]
@@ -317,8 +427,17 @@ public class BackgroundRegistrationTests
             Assert.False(shell.IsBackgroundRegistered);
 
             shell.RegisterBackground();
+            shell.RegisterNotifications();
+            Assert.NotNull(classes.OpenSubKey(@"AppUserModelId\PicKit.Screenshots"));
+            using (var command = classes.OpenSubKey(@"pickit\shell\open\command"))
+            {
+                Assert.Equal("\"C:\\Apps\\Pic Kit\\PicKit.exe\" --notification -- \"%1\"", command!.GetValue(null));
+            }
+
             shell.UnregisterAll();
             Assert.False(shell.IsBackgroundRegistered);
+            Assert.Null(classes.OpenSubKey("AppUserModelId"));
+            Assert.Null(classes.OpenSubKey("pickit"));
         }
         finally
         {

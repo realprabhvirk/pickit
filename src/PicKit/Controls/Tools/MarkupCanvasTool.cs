@@ -15,6 +15,7 @@ public enum MarkupMode
     Rectangle,
     Ellipse,
     Text,
+    Eraser,
 }
 
 /// <summary>What a markup gesture needs from its tool, so the gesture logic stays independent of the UI.</summary>
@@ -37,6 +38,13 @@ public interface IMarkupHost
     void FinishMove();
 
     void BeginText(SKPoint position, TextElement? existing);
+
+    /// <summary>The eraser's radius in image pixels.</summary>
+    float EraserRadius { get; }
+
+    void EraseAlong(SKPoint from, SKPoint to);
+
+    void FinishErase();
 }
 
 /// <summary>
@@ -55,6 +63,9 @@ public sealed class MarkupCanvasTool : ICanvasTool
     private SKPoint _dragOrigin;
     private bool _isMoving;
     private bool _moved;
+    private bool _isErasing;
+    private bool _isPointerOver;
+    private SKPoint _pointer;
     private MarkupElement? _preview;
 
     public MarkupCanvasTool(IMarkupHost host)
@@ -81,11 +92,20 @@ public sealed class MarkupCanvasTool : ICanvasTool
                 _points.Add(pointer.Image);
                 _preview = BuildStroke();
                 break;
+            case MarkupMode.Eraser:
+                _isErasing = true;
+                _pointer = pointer.Image;
+                _host.EraseAlong(pointer.Image, pointer.Image);
+                break;
         }
     }
 
     public void OnPointerMove(CanvasPointer pointer, bool isPressed)
     {
+        var previous = _pointer;
+        _pointer = pointer.Image;
+        _isPointerOver = true;
+
         if (!isPressed)
         {
             return;
@@ -111,6 +131,9 @@ public sealed class MarkupCanvasTool : ICanvasTool
             case MarkupMode.Line or MarkupMode.Arrow or MarkupMode.Rectangle or MarkupMode.Ellipse:
                 _preview = BuildShape(pointer);
                 break;
+            case MarkupMode.Eraser when _isErasing:
+                _host.EraseAlong(previous, pointer.Image);
+                break;
         }
     }
 
@@ -126,10 +149,18 @@ public sealed class MarkupCanvasTool : ICanvasTool
             _host.FinishMove();
         }
 
+        if (_isErasing)
+        {
+            _isErasing = false;
+            _host.FinishErase();
+        }
+
         _preview = null;
         _points.Clear();
         _isMoving = false;
     }
+
+    public void OnPointerLeft() => _isPointerOver = false;
 
     public Cursor? CursorAt(CanvasPointer pointer)
     {
@@ -145,6 +176,12 @@ public sealed class MarkupCanvasTool : ICanvasTool
 
     public void DrawOverlay(SKCanvas canvas, ViewTransform view)
     {
+        if (_host.Mode == MarkupMode.Eraser)
+        {
+            DrawEraser(canvas, view);
+            return;
+        }
+
         if (_host.Selected is not { } selected)
         {
             return;
@@ -157,6 +194,23 @@ public sealed class MarkupCanvasTool : ICanvasTool
         using var dark = new SKPaint { Color = new SKColor(0, 0x67, 0xC0), Style = SKPaintStyle.Stroke, StrokeWidth = 1.5f * scale, PathEffect = dash };
         canvas.DrawRect(box, light);
         canvas.DrawRect(box, dark);
+    }
+
+    /// <summary>Its real size under the pointer, so its reach is clear before rubbing anything out.</summary>
+    private void DrawEraser(SKCanvas canvas, ViewTransform view)
+    {
+        if (!_isPointerOver)
+        {
+            return;
+        }
+
+        var centre = view.ImageToView(_pointer);
+        var radius = _host.EraserRadius * (float)view.Zoom;
+        var scale = view.DeviceScale;
+        using var shadow = new SKPaint { Color = new SKColor(0, 0, 0, 120), Style = SKPaintStyle.Stroke, StrokeWidth = 3f * scale, IsAntialias = true };
+        using var edge = new SKPaint { Color = SKColors.White, Style = SKPaintStyle.Stroke, StrokeWidth = 1.5f * scale, IsAntialias = true };
+        canvas.DrawCircle(centre, radius, shadow);
+        canvas.DrawCircle(centre, radius, edge);
     }
 
     private void BeginSelection(CanvasPointer pointer)

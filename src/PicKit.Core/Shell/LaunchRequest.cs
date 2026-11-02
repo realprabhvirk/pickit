@@ -32,6 +32,9 @@ public enum ShellAction
 
     /// <summary>Asks a running background helper to take a screenshot.</summary>
     TakeScreenshot,
+
+    /// <summary>A screenshot notification was clicked.</summary>
+    Notification,
 }
 
 /// <summary>What the app was started to do.</summary>
@@ -53,6 +56,7 @@ public sealed record LaunchRequest(ShellAction Action, IReadOnlyList<string> Pat
         ["--background"] = ShellAction.Background,
         ["--stop-background"] = ShellAction.StopBackground,
         ["--screenshot"] = ShellAction.TakeScreenshot,
+        ["--notification"] = ShellAction.Notification,
     };
 
     public static string SwitchFor(ShellAction action) => Switches.First(pair => pair.Value == action).Key;

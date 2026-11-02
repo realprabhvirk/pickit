@@ -63,7 +63,7 @@ public class WaitingImagesUiTests
     });
 
     [Fact]
-    public void The_newest_comes_first_and_the_rest_wait_in_the_strip() => UiHarness.Run(harness =>
+    public void The_newest_comes_first_and_the_rest_wait_in_tabs() => UiHarness.Run(harness =>
     {
         AddShot(harness, "older.png", minutesAgo: 10);
         var newest = AddShot(harness, "newest.png");
@@ -71,8 +71,7 @@ public class WaitingImagesUiTests
         OpenFromWindows(harness);
 
         Assert.Equal(newest, harness.ViewModel.WaitingPath);
-        Assert.Equal(2, harness.ViewModel.OpenImages.Count);
-        Assert.True(harness.ViewModel.HasMultipleImages);
+        Assert.Equal(2, harness.ViewModel.Tabs.Count);
     });
 
     [Fact]
@@ -144,7 +143,7 @@ public class WaitingImagesUiTests
 
         Assert.False(File.Exists(newest));
         Assert.Equal(older, viewModel.WaitingPath);
-        Assert.Single(viewModel.OpenImages);
+        Assert.Single(viewModel.Tabs);
     });
 
     [Fact]
@@ -160,7 +159,7 @@ public class WaitingImagesUiTests
         Assert.False(File.Exists(path));
         Assert.False(viewModel.HasImage);
         Assert.False(viewModel.IsWaitingImage);
-        Assert.Empty(viewModel.OpenImages);
+        Assert.Empty(viewModel.Tabs);
         Assert.Equal("PicKit", viewModel.WindowTitle);
     });
 
@@ -202,7 +201,7 @@ public class WaitingImagesUiTests
     });
 
     [Fact]
-    public void A_screenshot_arriving_mid_edit_joins_the_strip_and_leaves_the_work_alone() => UiHarness.Run(async harness =>
+    public void A_screenshot_arriving_mid_edit_gets_a_tab_and_leaves_the_work_alone() => UiHarness.Run(async harness =>
     {
         await TestFiles.OpenPhoto(harness, 800, 600);
         var viewModel = harness.ViewModel;
@@ -214,8 +213,8 @@ public class WaitingImagesUiTests
 
         Assert.Same(document, viewModel.Editor.Document);
         Assert.False(viewModel.IsWaitingImage);
-        Assert.Contains(path, viewModel.OpenImages.Select(image => image.Path));
-        Assert.True(viewModel.HasMultipleImages);
+        Assert.Contains(path, viewModel.Tabs.Select(image => image.Path));
+        Assert.Equal(2, viewModel.Tabs.Count);
     });
 
     [Fact]
@@ -227,18 +226,18 @@ public class WaitingImagesUiTests
         harness.ViewModel.ShowWaitingImages();
         harness.ViewModel.ShowWaitingImages();
 
-        Assert.Equal(2, harness.ViewModel.OpenImages.Count);
+        Assert.Equal(2, harness.ViewModel.Tabs.Count);
     });
 
     [Fact]
-    public void Picking_a_waiting_image_from_the_strip_offers_save_and_trash() => UiHarness.Run(async harness =>
+    public void Picking_a_waiting_image_from_the_tabs_offers_save_and_trash() => UiHarness.Run(async harness =>
     {
         await TestFiles.OpenPhoto(harness, 800, 600);
         var viewModel = harness.ViewModel;
         var path = AddShot(harness, "shot.png");
         viewModel.ShowWaitingImages();
 
-        viewModel.SelectedImage = viewModel.OpenImages.First(image => image.Path == path);
+        viewModel.SelectedTab = viewModel.Tabs.First(image => image.Path == path);
         harness.WaitFor(() => viewModel.IsWaitingImage);
 
         Assert.Equal(path, viewModel.WaitingPath);
