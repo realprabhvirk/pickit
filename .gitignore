@@ -1,0 +1,20 @@
+# Build output (normally redirected outside OneDrive, see Directory.Build.props)
+bin/
+obj/
+artifacts/
+publish/
+*.user
+*.suo
+.vs/
+.vscode/
+*.binlog
+TestResults/
+
+# Machine-local Claude Code state
+.claude/
+
+# Segmentation models are large binaries, fetched and hash-checked by tools/get-model.ps1
+models/*.onnx
+
+# Installer output
+installer/Output/
