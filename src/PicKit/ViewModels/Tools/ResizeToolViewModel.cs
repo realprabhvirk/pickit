@@ -2,7 +2,9 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PicKit.Controls;
 using PicKit.Controls.Tools;
+using PicKit.Core.Files;
 using PicKit.Core.Imaging;
+using PicKit.Services;
 using SkiaSharp;
 
 namespace PicKit.ViewModels.Tools;
@@ -10,6 +12,8 @@ namespace PicKit.ViewModels.Tools;
 public sealed partial class ResizeToolViewModel : ToolViewModel
 {
     private readonly CropCanvasTool _cropGuide = new();
+    private readonly SizeEstimator _estimator = new();
+    private readonly DocumentSaver _saver;
     private bool _isSyncing;
 
     [ObservableProperty]
@@ -34,15 +38,19 @@ public sealed partial class ResizeToolViewModel : ToolViewModel
     private string _resultText = string.Empty;
 
     [ObservableProperty]
+    private string _estimateText = string.Empty;
+
+    [ObservableProperty]
     private string? _warning;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ApplyCommand))]
     private bool _isValid;
 
-    public ResizeToolViewModel(EditorViewModel editor)
+    public ResizeToolViewModel(EditorViewModel editor, DocumentSaver saver)
         : base(editor)
     {
+        _saver = saver;
     }
 
     public override string Name => "Resize";
@@ -63,6 +71,8 @@ public sealed partial class ResizeToolViewModel : ToolViewModel
     public override void Activate() => LoadFromImage();
 
     public override void OnImageChanged() => LoadFromImage();
+
+    public override void Deactivate() => _estimator.Cancel();
 
     public override bool ApplyPending()
     {
@@ -147,6 +157,8 @@ public sealed partial class ResizeToolViewModel : ToolViewModel
     {
         Warning = null;
         ResultText = string.Empty;
+        EstimateText = string.Empty;
+        _estimator.Cancel();
 
         if (Editor.Document?.Pixels is not { } pixels)
         {
@@ -181,6 +193,34 @@ public sealed partial class ResizeToolViewModel : ToolViewModel
         if (Mode == ResizeMode.CropToFill)
         {
             _cropGuide.Reset(pixels.Width, pixels.Height, (float)width / height);
+        }
+
+        if (IsValid)
+        {
+            EstimateSize(plan);
+        }
+    }
+
+    private async void EstimateSize(ResizePlan plan)
+    {
+        if (Editor.Document is not { } document)
+        {
+            return;
+        }
+
+        var format = ImageFormats.CanEncode(document.Source.Format) ? document.Source.Format : ImageFormat.Png;
+        var options = new EncodeOptions(format, _saver.QualityFor(format), SKColors.White);
+
+        EstimateText = "Estimating...";
+        var size = await _estimator.EstimateAsync(document.RenderFlattened(), flattened =>
+        {
+            using var resized = ImageOps.ApplyPlan(flattened, plan);
+            return ImageEncoder.Encode(resized, options).LongLength;
+        });
+
+        if (size is { } estimated)
+        {
+            EstimateText = $"About {FileSizeText.Format(estimated)}";
         }
     }
 

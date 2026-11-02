@@ -47,11 +47,11 @@ public sealed partial class EditorViewModel : ObservableObject
     [ObservableProperty]
     private string? _busyText;
 
-    public EditorViewModel(DialogService dialogs)
+    public EditorViewModel(DialogService dialogs, DocumentSaver saver)
     {
         _dialogs = dialogs;
         Crop = new CropToolViewModel(this);
-        Resize = new ResizeToolViewModel(this);
+        Resize = new ResizeToolViewModel(this, saver);
         Rotate = new RotateToolViewModel(this);
         Presets = new PresetToolViewModel(this);
 
@@ -100,6 +100,11 @@ public sealed partial class EditorViewModel : ObservableObject
         Redact = new RedactToolViewModel(this);
 
         EditTools = [Crop, Resize, Rotate, Markup, Text, Highlight, Blur, Pixelate, Redact];
+
+        Compress = new CompressToolViewModel(this, saver, dialogs);
+        Convert = new ConvertToolViewModel(this, saver, dialogs);
+        Details = new DetailsToolViewModel(this);
+        UtilityTools = [Compress, Convert, Details];
     }
 
     public event Action? DocumentContentChanged;
@@ -127,7 +132,15 @@ public sealed partial class EditorViewModel : ObservableObject
 
     public RedactToolViewModel Redact { get; }
 
+    public CompressToolViewModel Compress { get; }
+
+    public ConvertToolViewModel Convert { get; }
+
+    public DetailsToolViewModel Details { get; }
+
     public IReadOnlyList<ToolViewModel> EditTools { get; }
+
+    public IReadOnlyList<ToolViewModel> UtilityTools { get; }
 
     public ICanvasTool? CanvasTool => ActiveTool?.CanvasTool;
 
@@ -238,6 +251,29 @@ public sealed partial class EditorViewModel : ObservableObject
     public void FlushPendingEdits() => ActiveTool?.FlushPending();
 
     public void RedrawCanvas() => RedrawRequested?.Invoke();
+
+    public void BeginBusy(string text)
+    {
+        IsBusy = true;
+        BusyText = text;
+    }
+
+    public void EndBusy()
+    {
+        IsBusy = false;
+        BusyText = null;
+    }
+
+    /// <summary>Waits for background work, so nothing is reading an image that's about to be closed.</summary>
+    public async Task WaitUntilIdleAsync()
+    {
+        while (IsBusy)
+        {
+            await Task.Delay(20);
+        }
+    }
+
+    public void NotifySaved() => DocumentContentChanged?.Invoke();
 
     public void ClearActiveTool()
     {

@@ -63,6 +63,12 @@
                 Style="{DynamicResource AccentButtonStyle}"
                 Visibility="Collapsed" />
             <Button
+                x:Name="AlternateButton"
+                MinWidth="96"
+                Margin="0,0,8,0"
+                Click="OnAlternate"
+                Visibility="Collapsed" />
+            <Button
                 x:Name="CloseButton"
                 MinWidth="96"
                 Click="OnClose"

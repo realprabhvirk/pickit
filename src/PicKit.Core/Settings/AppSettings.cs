@@ -34,7 +34,7 @@ public sealed class AppSettings
 
     public string? LastTool { get; set; }
 
-    public int JpegQuality { get; set; } = 85;
+    public int JpegQuality { get; set; } = 90;
 
     public int WebPQuality { get; set; } = 82;
 

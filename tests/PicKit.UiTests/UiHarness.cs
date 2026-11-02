@@ -23,16 +23,19 @@ internal sealed class UiHarness : IDisposable
 {
     private static readonly Lazy<Dispatcher> UiThread = new(StartUiThread);
 
-    private UiHarness(MainWindow window, MainViewModel viewModel, string folder)
+    private UiHarness(MainWindow window, MainViewModel viewModel, string folder, ScriptedDialogs dialogs)
     {
         Window = window;
         ViewModel = viewModel;
         Folder = folder;
+        Dialogs = dialogs;
     }
 
     public MainWindow Window { get; }
 
     public MainViewModel ViewModel { get; }
+
+    public ScriptedDialogs Dialogs { get; }
 
     /// <summary>A private folder for this test's files.</summary>
     public string Folder { get; }
@@ -119,7 +122,9 @@ internal sealed class UiHarness : IDisposable
 
     public void Dispose()
     {
+        Dialogs.UnsavedAnswer = UnsavedChoice.Discard;
         Window.Close();
+        Pump();
         try
         {
             Directory.Delete(Folder, recursive: true);
@@ -138,7 +143,8 @@ internal sealed class UiHarness : IDisposable
         var settings = new SettingsStore(Path.Combine(folder, "settings.json"));
         settings.Current.RememberWindow = false;
 
-        var viewModel = new MainViewModel(settings, new DialogService());
+        var dialogs = new ScriptedDialogs();
+        var viewModel = new MainViewModel(settings, dialogs);
         var window = new MainWindow(viewModel, settings)
         {
             ShowActivated = false,
@@ -151,7 +157,7 @@ internal sealed class UiHarness : IDisposable
         };
 
         window.Show();
-        var harness = new UiHarness(window, viewModel, folder);
+        var harness = new UiHarness(window, viewModel, folder, dialogs);
         harness.Pump();
         return harness;
     }

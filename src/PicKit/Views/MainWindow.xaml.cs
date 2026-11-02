@@ -14,6 +14,7 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel;
     private readonly SettingsStore _settings;
     private MarkupToolViewModel? _textTool;
+    private bool _closeConfirmed;
 
     public MainWindow(MainViewModel viewModel, SettingsStore settings)
     {
@@ -31,10 +32,23 @@ public partial class MainWindow : Window
         Deactivated += (_, _) => Canvas.IsPanModifierHeld = false;
     }
 
-    protected override void OnClosing(CancelEventArgs e)
+    protected override async void OnClosing(CancelEventArgs e)
     {
         base.OnClosing(e);
-        SavePlacement();
+        if (_closeConfirmed || !_viewModel.HasUnsavedChanges)
+        {
+            SavePlacement();
+            return;
+        }
+
+        // Closing has to wait for the answer, so hold it here and close again if it's safe.
+        e.Cancel = true;
+        await System.Windows.Threading.Dispatcher.Yield();
+        if (await _viewModel.ResolveUnsavedChangesAsync())
+        {
+            _closeConfirmed = true;
+            Close();
+        }
     }
 
     private void BindCanvasShortcuts()
@@ -68,6 +82,17 @@ public partial class MainWindow : Window
         if (e.Key == Key.Space)
         {
             Canvas.IsPanModifierHeld = false;
+        }
+    }
+
+    private void OnSaveMenu(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { ContextMenu: { } menu } button)
+        {
+            menu.PlacementTarget = button;
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            menu.DataContext = DataContext;
+            menu.IsOpen = true;
         }
     }
 

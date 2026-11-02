@@ -2,9 +2,22 @@ using System.Windows;
 
 namespace PicKit.Views;
 
+public enum MessageDialogOutcome
+{
+    Closed,
+    Confirmed,
+    Alternate,
+}
+
 public partial class MessageDialog : Window
 {
-    public MessageDialog(string heading, string message, string? details, string closeLabel, string? confirmLabel = null)
+    public MessageDialog(
+        string heading,
+        string message,
+        string? details,
+        string closeLabel,
+        string? confirmLabel = null,
+        string? alternateLabel = null)
     {
         InitializeComponent();
 
@@ -27,9 +40,25 @@ public partial class MessageDialog : Window
         {
             CloseButton.IsDefault = true;
         }
+
+        if (alternateLabel is not null)
+        {
+            AlternateButton.Content = alternateLabel;
+            AlternateButton.Visibility = Visibility.Visible;
+        }
     }
 
-    private void OnConfirm(object sender, RoutedEventArgs e) => DialogResult = true;
+    public MessageDialogOutcome Outcome { get; private set; }
 
-    private void OnClose(object sender, RoutedEventArgs e) => DialogResult = false;
+    private void OnConfirm(object sender, RoutedEventArgs e) => Finish(MessageDialogOutcome.Confirmed);
+
+    private void OnAlternate(object sender, RoutedEventArgs e) => Finish(MessageDialogOutcome.Alternate);
+
+    private void OnClose(object sender, RoutedEventArgs e) => Finish(MessageDialogOutcome.Closed);
+
+    private void Finish(MessageDialogOutcome outcome)
+    {
+        Outcome = outcome;
+        Close();
+    }
 }
