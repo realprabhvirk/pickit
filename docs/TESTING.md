@@ -37,9 +37,9 @@ The background helper, measured from the release build on 2026-11-02:
 
 | | |
 |---|---|
-| Private memory, idle | 14.6 MB |
+| Private memory, idle | About 15 MB |
 | WPF loaded | No |
-| Private memory, just after a screenshot | 15.6 MB, settling to about 16 MB |
+| Private memory after a screenshot | About 16 MB |
 
 The helper was run on a private desktop for this, because tests must not show anything on the user's screen. A desktop with no display behind it can't be read, so the screen capture itself is tested separately on the real desktop, in memory only.
 
