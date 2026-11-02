@@ -8,6 +8,7 @@ namespace PicKit.Background;
 internal abstract class AgentWindow : IDisposable
 {
     private const string ClassName = "PicKit.Background";
+    private const string Title = "PicKit helper";
 
     private static readonly Native.WindowProcedure Procedure = Route;
     private static readonly Dictionary<IntPtr, AgentWindow> Windows = [];
@@ -17,7 +18,7 @@ internal abstract class AgentWindow : IDisposable
     {
         RegisterClass();
         var instance = Native.GetModuleHandleW(null);
-        Handle = Native.CreateWindowExW(extendedStyle, ClassName, "PicKit", style, 0, 0, 0, 0, 0, 0, instance, 0);
+        Handle = Native.CreateWindowExW(extendedStyle, ClassName, Title, style, 0, 0, 0, 0, 0, 0, instance, 0);
         if (Handle == IntPtr.Zero)
         {
             throw new System.ComponentModel.Win32Exception();
@@ -34,8 +35,20 @@ internal abstract class AgentWindow : IDisposable
         Native.DestroyWindow(Handle);
     }
 
-    protected virtual IntPtr OnMessage(uint message, IntPtr wParam, IntPtr lParam) =>
-        Native.DefWindowProcW(Handle, message, wParam, lParam);
+    /// <summary>
+    /// A close request to any of these windows, such as from Windows updating its files, ends
+    /// the whole helper. Left to the default, it would destroy just that one window.
+    /// </summary>
+    protected virtual IntPtr OnMessage(uint message, IntPtr wParam, IntPtr lParam)
+    {
+        if (message == Native.WM_CLOSE)
+        {
+            Native.PostQuitMessage(0);
+            return IntPtr.Zero;
+        }
+
+        return Native.DefWindowProcW(Handle, message, wParam, lParam);
+    }
 
     /// <summary>Pixels per layout unit on a monitor, so these windows match the rest of Windows.</summary>
     protected static float ScaleFor(IntPtr monitor) =>

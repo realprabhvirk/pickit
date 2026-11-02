@@ -93,9 +93,6 @@ internal sealed class BackgroundAgent : AgentWindow
             case Native.WM_DISPLAYCHANGE:
                 _dropBox?.PlaceOnScreen();
                 return 0;
-            case Native.WM_CLOSE:
-                Native.PostQuitMessage(0);
-                return 0;
             default:
                 return base.OnMessage(message, wParam, lParam);
         }
