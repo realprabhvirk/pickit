@@ -16,6 +16,11 @@ public interface ICanvasTool
 
     void OnPointerUp(CanvasPointer pointer);
 
+    /// <summary>The pointer left the canvas, so anything following it should stop showing.</summary>
+    void OnPointerLeft()
+    {
+    }
+
     /// <summary>Cursor for the current position, or null for the default.</summary>
     Cursor? CursorAt(CanvasPointer pointer);
 

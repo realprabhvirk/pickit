@@ -17,6 +17,7 @@ public sealed class RegionCanvasTool : ICanvasTool
     private SKPoint _start;
     private SKPoint _current;
     private bool _isDragging;
+    private bool _isPointerOver;
 
     public RegionCanvasTool(Action<SKRect> onRegionDrawn, Action<SKCanvas>? drawPending = null)
     {
@@ -50,6 +51,7 @@ public sealed class RegionCanvasTool : ICanvasTool
     public void OnPointerMove(CanvasPointer pointer, bool isPressed)
     {
         _current = pointer.Image;
+        _isPointerOver = true;
         if (isPressed && _isDragging && Shape == RegionShape.Brush
             && SKPoint.Distance(_points[^1], pointer.Image) >= MinimumPointSpacing / pointer.Zoom)
         {
@@ -83,6 +85,8 @@ public sealed class RegionCanvasTool : ICanvasTool
             OutlineDrawn?.Invoke(RegionOutline.ForBox(box, Shape));
         }
     }
+
+    public void OnPointerLeft() => _isPointerOver = false;
 
     public Cursor? CursorAt(CanvasPointer pointer) => Cursors.Cross;
 
@@ -121,6 +125,11 @@ public sealed class RegionCanvasTool : ICanvasTool
             canvas.Concat(view.Matrix);
             canvas.DrawPath(outline.Path, stroke);
             canvas.Restore();
+        }
+
+        if (!_isPointerOver)
+        {
+            return;
         }
 
         // The brush's real size under the pointer, so its reach is clear before painting.

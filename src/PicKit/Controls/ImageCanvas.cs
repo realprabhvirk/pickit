@@ -181,6 +181,13 @@ public sealed class ImageCanvas : FrameworkElement
         MoveTo(e.GetPosition(this), Keyboard.Modifiers);
     }
 
+    protected override void OnMouseLeave(MouseEventArgs e)
+    {
+        base.OnMouseLeave(e);
+        Tool?.OnPointerLeft();
+        InvalidateVisual();
+    }
+
     protected override void OnMouseUp(MouseButtonEventArgs e)
     {
         base.OnMouseUp(e);

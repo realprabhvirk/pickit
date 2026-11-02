@@ -106,7 +106,7 @@ public sealed partial class BlurToolViewModel : RegionEffectToolViewModel
 
     public override string Name => "Blur";
 
-    public override string Glyph => "";
+    public override string Glyph => "\uEB42";
 
     protected override string Verb => "blur";
 
@@ -126,7 +126,7 @@ public sealed partial class PixelateToolViewModel : RegionEffectToolViewModel
 
     public override string Name => "Pixelate";
 
-    public override string Glyph => "";
+    public override string Glyph => "\uE8B3";
 
     protected override string Verb => "pixelate";
 
