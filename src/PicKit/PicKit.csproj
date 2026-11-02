@@ -26,6 +26,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="PicKit.UiTests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Resource Include="Assets\PicKit.ico" />
   </ItemGroup>
 

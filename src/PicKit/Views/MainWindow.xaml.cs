@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Windows;
-using PicKit.Core.Imaging;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using PicKit.Core.Settings;
 using PicKit.ViewModels;
 
@@ -17,13 +18,51 @@ public partial class MainWindow : Window
         DataContext = _viewModel = viewModel;
         _settings = settings;
         RestorePlacement();
+        BindCanvasShortcuts();
         Drop += OnDrop;
+        PreviewKeyDown += OnPreviewKeyDown;
+        PreviewKeyUp += OnPreviewKeyUp;
+        Deactivated += (_, _) => Canvas.IsPanModifierHeld = false;
     }
 
     protected override void OnClosing(CancelEventArgs e)
     {
         base.OnClosing(e);
         SavePlacement();
+    }
+
+    private void BindCanvasShortcuts()
+    {
+        void Bind(ICommand command, params Key[] keys)
+        {
+            foreach (var key in keys)
+            {
+                InputBindings.Add(new KeyBinding(command, key, ModifierKeys.Control));
+            }
+        }
+
+        Bind(Canvas.ZoomInCommand, Key.OemPlus, Key.Add);
+        Bind(Canvas.ZoomOutCommand, Key.OemMinus, Key.Subtract);
+        Bind(Canvas.FitCommand, Key.D0, Key.NumPad0);
+        Bind(Canvas.ActualSizeCommand, Key.D1, Key.NumPad1);
+    }
+
+    private void OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        // Space belongs to whatever button or text box has focus; it only pans over the canvas.
+        if (e.Key == Key.Space && Keyboard.FocusedElement is not (System.Windows.Controls.TextBox or ButtonBase))
+        {
+            Canvas.IsPanModifierHeld = true;
+            e.Handled = true;
+        }
+    }
+
+    private void OnPreviewKeyUp(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Space)
+        {
+            Canvas.IsPanModifierHeld = false;
+        }
     }
 
     private void OnDrop(object sender, DragEventArgs e)

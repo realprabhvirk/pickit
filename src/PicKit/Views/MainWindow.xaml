@@ -67,10 +67,57 @@
 
         <Border
             Grid.Row="2"
-            Padding="12,6"
+            Padding="12,2"
             BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
             BorderThickness="0,1,0,0">
-            <TextBlock Style="{StaticResource SecondaryText}" Text="{Binding StatusText}" />
+            <DockPanel LastChildFill="False">
+                <TextBlock
+                    VerticalAlignment="Center"
+                    DockPanel.Dock="Left"
+                    Style="{StaticResource SecondaryText}"
+                    Text="{Binding StatusText}" />
+
+                <StackPanel
+                    DockPanel.Dock="Right"
+                    Orientation="Horizontal"
+                    Visibility="{Binding HasImage, Converter={StaticResource BooleanToVisibility}}">
+                    <Button
+                        AutomationProperties.Name="Zoom out"
+                        Command="{Binding ZoomOutCommand, ElementName=Canvas}"
+                        Style="{StaticResource CommandButton}"
+                        ToolTip="Zoom out (Ctrl+Minus)">
+                        <TextBlock Style="{StaticResource IconText}" Text="&#xE71F;" />
+                    </Button>
+                    <TextBlock
+                        Width="48"
+                        VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="ZoomLevel"
+                        Text="{Binding ZoomText, ElementName=Canvas}"
+                        TextAlignment="Center" />
+                    <Button
+                        AutomationProperties.Name="Zoom in"
+                        Command="{Binding ZoomInCommand, ElementName=Canvas}"
+                        Style="{StaticResource CommandButton}"
+                        ToolTip="Zoom in (Ctrl+Plus)">
+                        <TextBlock Style="{StaticResource IconText}" Text="&#xE8A3;" />
+                    </Button>
+                    <Button
+                        Margin="4,0,0,0"
+                        AutomationProperties.Name="Fit to window"
+                        Command="{Binding FitCommand, ElementName=Canvas}"
+                        Style="{StaticResource CommandButton}"
+                        ToolTip="Fit to window (Ctrl+0)">
+                        <TextBlock Style="{StaticResource IconText}" Text="&#xE9A6;" />
+                    </Button>
+                    <Button
+                        AutomationProperties.Name="Actual size"
+                        Command="{Binding ActualSizeCommand, ElementName=Canvas}"
+                        Style="{StaticResource CommandButton}"
+                        ToolTip="Actual size (Ctrl+1)">
+                        <TextBlock Style="{StaticResource IconText}" Text="&#xE71E;" />
+                    </Button>
+                </StackPanel>
+            </DockPanel>
         </Border>
     </Grid>
 </Window>
