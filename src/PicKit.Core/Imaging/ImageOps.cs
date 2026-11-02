@@ -100,6 +100,38 @@ public static class ImageOps
         return target;
     }
 
+    /// <summary>
+    /// A region's original pixels with <paramref name="replaced"/> showing through a shape, so an
+    /// effect reaches exactly that shape and nothing else in the region changes.
+    /// </summary>
+    public static ImageBuffer ThroughOutline(ImageBuffer source, SKRectI region, ImageBuffer replaced, RegionOutline outline)
+    {
+        var target = PixelOps.CopyRegion(source, region);
+        using var canvas = target.CreateCanvas();
+        canvas.Translate(-region.Left, -region.Top);
+
+        using var image = replaced.AsImage();
+        using var shader = image.ToShader(
+            SKShaderTileMode.Clamp,
+            SKShaderTileMode.Clamp,
+            new SKSamplingOptions(SKFilterMode.Nearest),
+            SKMatrix.CreateTranslation(region.Left, region.Top));
+
+        using var paint = new SKPaint
+        {
+            Shader = shader,
+            BlendMode = SKBlendMode.Src,
+            IsAntialias = true,
+            Style = outline.StrokeWidth > 0 ? SKPaintStyle.Stroke : SKPaintStyle.Fill,
+            StrokeWidth = outline.StrokeWidth,
+            StrokeCap = SKStrokeCap.Round,
+            StrokeJoin = SKStrokeJoin.Round,
+        };
+
+        canvas.DrawPath(outline.Path, paint);
+        return target;
+    }
+
     /// <summary>Mosaic replacement pixels: every block becomes the average of its pixels.</summary>
     public static ImageBuffer PixelateRegion(ImageBuffer source, SKRectI region, int blockSize)
     {
