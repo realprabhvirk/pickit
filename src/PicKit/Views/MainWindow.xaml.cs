@@ -25,6 +25,7 @@ public partial class MainWindow : Window
         Drop += OnDrop;
         PreviewKeyDown += OnPreviewKeyDown;
         PreviewKeyUp += OnPreviewKeyUp;
+        viewModel.Editor.RedrawRequested += Canvas.Redraw;
         viewModel.Editor.Markup.PropertyChanged += OnMarkupToolChanged;
         viewModel.Editor.Text.PropertyChanged += OnMarkupToolChanged;
         Deactivated += (_, _) => Canvas.IsPanModifierHeld = false;

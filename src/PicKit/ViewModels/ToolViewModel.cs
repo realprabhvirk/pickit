@@ -38,4 +38,12 @@ public abstract class ToolViewModel : ObservableObject
 
     /// <summary>Enter was pressed. Returns true if the tool had something to apply.</summary>
     public virtual bool ApplyPending() => false;
+
+    /// <summary>Escape was pressed. Returns true if that dropped something, keeping the tool open.</summary>
+    public virtual bool CancelPending() => false;
+
+    /// <summary>Called before any export, so the file matches what is on screen.</summary>
+    public virtual void FlushPending()
+    {
+    }
 }

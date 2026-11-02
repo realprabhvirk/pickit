@@ -301,4 +301,96 @@
         </StackPanel>
     </DataTemplate>
 
+    <DataTemplate DataType="{x:Type tools:BlurToolViewModel}">
+        <StackPanel>
+            <TextBlock Style="{StaticResource BodyHint}" Text="Drag over the area to blur." />
+            <TextBlock
+                Margin="0,14,0,0"
+                Style="{StaticResource FieldLabel}"
+                Text="Strength" />
+            <Slider
+                AutomationProperties.Name="Blur strength"
+                IsSnapToTickEnabled="True"
+                Maximum="40"
+                Minimum="2"
+                TickFrequency="1"
+                Value="{Binding Strength}" />
+            <TextBlock
+                Margin="0,14,0,0"
+                Style="{StaticResource BodyHint}"
+                Text="For passwords or ID numbers, use Redact. Heavy blur is good for faces, but some blurred text can be recovered." />
+        </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type tools:PixelateToolViewModel}">
+        <StackPanel>
+            <TextBlock Style="{StaticResource BodyHint}" Text="Drag over the area to pixelate." />
+            <TextBlock
+                Margin="0,14,0,0"
+                Style="{StaticResource FieldLabel}"
+                Text="Block size" />
+            <Slider
+                AutomationProperties.Name="Block size"
+                IsSnapToTickEnabled="True"
+                Maximum="64"
+                Minimum="4"
+                TickFrequency="1"
+                Value="{Binding BlockSize}" />
+            <TextBlock
+                Margin="0,14,0,0"
+                Style="{StaticResource BodyHint}"
+                Text="For passwords or ID numbers, use Redact. Small blocks can sometimes be read." />
+        </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type tools:RedactToolViewModel}">
+        <StackPanel>
+            <TextBlock Style="{StaticResource BodyHint}" Text="{Binding PendingText}" />
+
+            <TextBlock
+                Margin="0,14,0,4"
+                Style="{StaticResource FieldLabel}"
+                Text="Fill" />
+            <StackPanel Orientation="Horizontal">
+                <RadioButton
+                    Margin="0,0,16,0"
+                    Content="Black"
+                    GroupName="RedactFill"
+                    IsChecked="True" />
+                <RadioButton
+                    Content="White"
+                    GroupName="RedactFill"
+                    IsChecked="{Binding UseWhite}" />
+            </StackPanel>
+
+            <Border
+                Margin="0,14,0,0"
+                Padding="10,8"
+                Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                CornerRadius="4">
+                <TextBlock
+                    Style="{StaticResource BodyHint}"
+                    Text="Redacting permanently replaces these pixels. The hidden content won't be in anything you save or copy. You can undo until you close the image." />
+            </Border>
+
+            <Grid Margin="0,16,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button
+                    HorizontalAlignment="Stretch"
+                    Command="{Binding ClearCommand}"
+                    Content="Clear" />
+                <Button
+                    Grid.Column="2"
+                    HorizontalAlignment="Stretch"
+                    Command="{Binding ApplyCommand}"
+                    Content="Apply"
+                    Style="{DynamicResource AccentButtonStyle}" />
+            </Grid>
+        </StackPanel>
+    </DataTemplate>
+
 </ResourceDictionary>

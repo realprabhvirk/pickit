@@ -85,6 +85,25 @@ public sealed class EditorDocument : IDisposable
         Changed?.Invoke(new DocumentChange(DocumentChangeKind.Region, region));
     }
 
+    /// <summary>Applies a prepared blur, pixelate or redaction as one undoable step.</summary>
+    public void ApplyRegionEdit(string label, RegionEdit edit)
+    {
+        var pixels = edit.TakePixels();
+        if (edit.ReplacesWholeImage)
+        {
+            var burned = edit.BurnedIn;
+            History.Push(new ReplacePixelsStep(label, Pixels, Markups));
+            Pixels = pixels;
+            Markups = Markups.RemoveRange(burned);
+            HasPixelEdits = true;
+            Changed?.Invoke(new DocumentChange(DocumentChangeKind.Replaced, Pixels.Bounds));
+        }
+        else
+        {
+            PatchRegion(label, edit.Bounds, pixels);
+        }
+    }
+
     public void SetMarkups(string label, ImmutableArray<MarkupElement> markups)
     {
         History.Push(new MarkupStep(label, Markups));

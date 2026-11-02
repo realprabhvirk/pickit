@@ -95,10 +95,17 @@ public sealed partial class EditorViewModel : ObservableObject
             defaultThickness: 24,
             defaultOpacity: 0.6);
 
-        EditTools = [Crop, Resize, Rotate, Markup, Text, Highlight];
+        Blur = new BlurToolViewModel(this);
+        Pixelate = new PixelateToolViewModel(this);
+        Redact = new RedactToolViewModel(this);
+
+        EditTools = [Crop, Resize, Rotate, Markup, Text, Highlight, Blur, Pixelate, Redact];
     }
 
     public event Action? DocumentContentChanged;
+
+    /// <summary>The canvas should repaint, because a tool's unapplied work changed.</summary>
+    public event Action? RedrawRequested;
 
     public CropToolViewModel Crop { get; }
 
@@ -113,6 +120,12 @@ public sealed partial class EditorViewModel : ObservableObject
     public MarkupToolViewModel Text { get; }
 
     public MarkupToolViewModel Highlight { get; }
+
+    public BlurToolViewModel Blur { get; }
+
+    public PixelateToolViewModel Pixelate { get; }
+
+    public RedactToolViewModel Redact { get; }
 
     public IReadOnlyList<ToolViewModel> EditTools { get; }
 
@@ -169,6 +182,63 @@ public sealed partial class EditorViewModel : ObservableObject
         }
     }
 
+    /// <summary>Applies a privacy edit, working it out on a background thread.</summary>
+    public async Task ApplyRegionAsync(string label, IReadOnlyList<SKRect> boxes, Func<ImageBuffer, SKRectI, ImageBuffer> replacement)
+    {
+        var document = Document;
+        if (document is null || IsBusy)
+        {
+            return;
+        }
+
+        var regions = ToRegions(document, boxes);
+        if (regions.Count == 0)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        BusyText = $"{label}...";
+        try
+        {
+            var pixels = document.Pixels;
+            var markups = document.Markups;
+            var edit = await Task.Run(() => RegionEdit.Prepare(pixels, markups, regions, replacement));
+            using (edit)
+            {
+                if (ReferenceEquals(document, Document))
+                {
+                    document.ApplyRegionEdit(label, edit);
+                }
+            }
+        }
+        catch (ImageException ex)
+        {
+            Log.Warn($"{label} failed", ex);
+            _dialogs.ShowError($"Couldn't finish {label.ToLowerInvariant()}", ex.Message, ex.Details);
+        }
+        finally
+        {
+            IsBusy = false;
+            BusyText = null;
+        }
+    }
+
+    /// <summary>Applies a privacy edit immediately, for when an export can't proceed without it.</summary>
+    public void ApplyRegionNow(string label, IReadOnlyList<SKRectI> regions, Func<ImageBuffer, SKRectI, ImageBuffer> replacement)
+    {
+        if (Document is { } document)
+        {
+            using var edit = RegionEdit.Prepare(document.Pixels, document.Markups, regions, replacement);
+            document.ApplyRegionEdit(label, edit);
+        }
+    }
+
+    /// <summary>Makes sure anything still marked on screen is really in the image.</summary>
+    public void FlushPendingEdits() => ActiveTool?.FlushPending();
+
+    public void RedrawCanvas() => RedrawRequested?.Invoke();
+
     public void ClearActiveTool()
     {
         ActiveTool = null;
@@ -212,6 +282,11 @@ public sealed partial class EditorViewModel : ObservableObject
         DocumentContentChanged?.Invoke();
     }
 
+    private static List<SKRectI> ToRegions(EditorDocument document, IReadOnlyList<SKRect> boxes) =>
+        boxes.Select(box => ImageOps.CoveringPixels(box, document.Pixels.Width, document.Pixels.Height))
+            .Where(region => !region.IsEmpty)
+            .ToList();
+
     private void NotifyHistory()
     {
         UndoCommand.NotifyCanExecuteChanged();
@@ -234,7 +309,7 @@ public sealed partial class EditorViewModel : ObservableObject
     [RelayCommand]
     private void Cancel()
     {
-        if (IsIdle)
+        if (IsIdle && ActiveTool?.CancelPending() != true)
         {
             ClearActiveTool();
         }
