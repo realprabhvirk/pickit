@@ -142,9 +142,12 @@ public sealed partial class MainViewModel : ObservableObject
     public void OpenPaths(IReadOnlyList<string> paths) => Handle(new LaunchRequest(ShellAction.Open, paths));
 
     /// <summary>Carries out what Explorer or the command line asked for, and brings the window forward.</summary>
-    public void Handle(LaunchRequest request)
+    public void Handle(LaunchRequest request, bool bringToFront = true)
     {
-        ActivationRequested?.Invoke();
+        if (bringToFront)
+        {
+            ActivationRequested?.Invoke();
+        }
 
         var images = ImagePaths.Expand(request.Paths);
         if (request.Paths.Count > 0 && images.Count == 0)

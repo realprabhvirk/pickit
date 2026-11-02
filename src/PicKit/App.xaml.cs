@@ -22,6 +22,7 @@ public partial class App : Application
     private DispatcherTimer? _gather;
     private SettingsStore? _settings;
     private MainViewModel? _viewModel;
+    private bool _hasHandledFirstRequest;
 
     public App(LaunchInbox inbox)
     {
@@ -105,9 +106,15 @@ public partial class App : Application
     private void OnGatherFinished(object? sender, EventArgs e)
     {
         _gather?.Stop();
+
+        // The first request is this launch itself, and Windows has already placed the window.
+        // Pulling it forward would undo a shortcut set to start minimized.
+        var bringToFront = _hasHandledFirstRequest;
+        _hasHandledFirstRequest = true;
+
         foreach (var request in _inbox.TakeMerged())
         {
-            _viewModel?.Handle(request);
+            _viewModel?.Handle(request, bringToFront);
         }
     }
 }

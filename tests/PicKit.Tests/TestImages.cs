@@ -5,6 +5,13 @@ namespace PicKit.Tests;
 
 internal static class TestImages
 {
+    private static readonly string Scratch = Path.Combine(Path.GetTempPath(), "PicKitTests", Environment.ProcessId.ToString());
+
+    static TestImages()
+    {
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => RemoveScratch();
+    }
+
     /// <summary>Every pixel gets a unique opaque colour, so any misplaced pixel is detectable.</summary>
     public static ImageBuffer Numbered(int width, int height)
     {
@@ -51,8 +58,20 @@ internal static class TestImages
 
     public static string TempFolder()
     {
-        var folder = Path.Combine(Path.GetTempPath(), "PicKitTests", Guid.NewGuid().ToString("N"));
+        var folder = Path.Combine(Scratch, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
         return folder;
+    }
+
+    private static void RemoveScratch()
+    {
+        try
+        {
+            Directory.Delete(Scratch, recursive: true);
+        }
+        catch (IOException)
+        {
+            // Scratch space in the temp folder, which Windows can clear later.
+        }
     }
 }

@@ -44,9 +44,10 @@ public sealed record ImageMetadataInfo(IReadOnlyList<MetadataField> Fields, bool
         {
             directories = ImageMetadataReader.ReadMetadata(stream);
         }
-        catch (Exception ex) when (ex is ImageProcessingException or IOException or ArgumentException or IndexOutOfRangeException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            // Metadata is optional. A file with broken metadata can still be a fine image.
+            // This parser runs over untrusted bytes, and metadata is optional. A file with
+            // broken metadata can still be a fine image, whatever the parser made of it.
             Log.Info($"No readable metadata: {ex.Message}");
             return Empty;
         }

@@ -28,6 +28,7 @@ public sealed class ShellRegistrationTests : IDisposable
         _classes.Dispose();
         _software.Dispose();
         Registry.CurrentUser.DeleteSubKeyTree(_sandboxPath, throwOnMissingSubKey: false);
+        TestRegistry.RemoveParentIfEmpty();
     }
 
     private object? Value(RegistryKey root, string path, string? name = null)
@@ -166,6 +167,24 @@ public sealed class ShellRegistrationTests : IDisposable
 
         var command = (string?)Value(_classes, $@"{ShellRegistration.MenuKey}\shell\01open\command");
         Assert.StartsWith("\"D:\\Moved\\PicKit.exe\"", command);
+    }
+}
+
+internal static class TestRegistry
+{
+    private const string Parent = @"Software\PicKitTests";
+
+    public static void RemoveParentIfEmpty()
+    {
+        using (var parent = Registry.CurrentUser.OpenSubKey(Parent))
+        {
+            if (parent is null || parent.SubKeyCount > 0)
+            {
+                return;
+            }
+        }
+
+        Registry.CurrentUser.DeleteSubKey(Parent, throwOnMissingSubKey: false);
     }
 }
 

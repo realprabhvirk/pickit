@@ -149,6 +149,13 @@ public class PolishUiTests
         finally
         {
             Registry.CurrentUser.DeleteSubKeyTree(sandbox, throwOnMissingSubKey: false);
+            using (var parent = Registry.CurrentUser.OpenSubKey(@"Software\PicKitTests"))
+            {
+                if (parent is { SubKeyCount: 0 })
+                {
+                    Registry.CurrentUser.DeleteSubKey(@"Software\PicKitTests", throwOnMissingSubKey: false);
+                }
+            }
         }
     });
 

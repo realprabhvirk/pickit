@@ -71,9 +71,16 @@ public static class ExportService
 
     private static bool LooksUpright(DecodedImage decoded, byte[] stripped)
     {
-        using var check = ImageDecoder.Decode(stripped);
-        return check.Pixels.Width == decoded.Pixels.Width
-            && check.Pixels.Height == decoded.Pixels.Height
-            && check.Pixels.Pixels.SequenceEqual(decoded.Pixels.Pixels);
+        try
+        {
+            using var check = ImageDecoder.Decode(stripped);
+            return check.Pixels.Width == decoded.Pixels.Width
+                && check.Pixels.Height == decoded.Pixels.Height
+                && check.Pixels.Pixels.SequenceEqual(decoded.Pixels.Pixels);
+        }
+        catch (ImageException)
+        {
+            return false;
+        }
     }
 }
