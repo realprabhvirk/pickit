@@ -4,20 +4,22 @@
 
 PicKit handles the image jobs that are too small for Photoshop and too annoying to do manually: resize this, crop this, redact this, compress this, remove this background, copy it, done.
 
-No accounts, no cloud, no projects, no library. Everything happens on your PC, and your images are never uploaded.
+No accounts, no cloud, no projects, no library. Everything happens on your PC, and your images are never uploaded. The only network request PicKit ever makes is to download an image you drag in from a web page, when the browser passes along its address and not the image itself.
 
 ## What it does
 
 | | |
 |---|---|
-| **Edit** | Crop, resize, rotate, flip, pen, arrow, line, rectangle, circle, text, highlight |
-| **Privacy** | Blur, pixelate and redaction that truly replaces pixels. View and remove camera, location and author details |
+| **Edit** | Crop, resize in pixels, mm or cm, rotate, flip, pen, arrow, line, rectangle, circle, text with preset fonts, highlight |
+| **Privacy** | Blur and pixelate by box, rounded box, circle or brush, and redaction that truly replaces pixels. View and remove camera, location and author details |
 | **Remove background** | Automatic, on your PC, with Keep and Remove brushes to fix the result |
 | **Compress and convert** | PNG, JPEG and WebP, by quality or to a target file size |
 | **Resize for** | Instagram, YouTube, LinkedIn, Facebook, wallpapers and more, always showing what would be cut |
 | **Many images** | Batch compress, resize, convert and rename, with a preview, cancel and undo |
 | **Clipboard** | Copy without saving, and paste screenshots straight in |
 | **File Explorer** | Right-click images, or use Open with |
+| **Screenshots** | Ctrl+Alt+S captures the screen under the mouse with no sound, flash or clipboard change. Save it, edit it or trash it |
+| **Drop box** | A tiny box at the edge of the screen. Drag an image onto it from a web page or File Explorer to start editing |
 
 Originals are safe by design. Files are written to a temporary name and swapped in only when complete, replacing a file always asks first, and batch jobs never overwrite anything.
 

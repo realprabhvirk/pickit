@@ -4,8 +4,8 @@
 
 | Suite | Tests | Covers |
 |---|---|---|
-| `tests/PicKit.Tests` | 331 | Resize, crop, compression, conversion, undo, rename, batch, metadata, clipboard formats, Explorer registration |
-| `tests/PicKit.UiTests` | 139 | The real window end to end: every tool, save flows, prompts, batch, rename, display scaling, accessibility names |
+| `tests/PicKit.Tests` | 399 | Resize, crop, compression, conversion, undo, rename, batch, metadata, clipboard formats, Explorer registration |
+| `tests/PicKit.UiTests` | 208 | The real window end to end: every tool, save flows, prompts, batch, rename, display scaling, accessibility names |
 
 The UI tests run off-screen, never take focus, and use an in-memory clipboard, so they can run while the PC is being used. Registry tests write only under a throwaway key.
 
@@ -32,6 +32,16 @@ These were taken on 2026-11-02 with Chrome and OneDrive active.
 | 100-megapixel image: resize to 1920 wide | 212 ms |
 
 Startup is above the 1 second aimed for. Going lower would mean replacing the Windows theme with a hand-built one.
+
+The background helper, measured from the release build on 2026-11-02:
+
+| | |
+|---|---|
+| Private memory, idle | 14.6 MB |
+| WPF loaded | No |
+| Private memory, just after a screenshot | 15.6 MB, settling to about 16 MB |
+
+The helper was run on a private desktop for this, because tests must not show anything on the user's screen. A desktop with no display behind it can't be read, so the screen capture itself is tested separately on the real desktop, in memory only.
 
 ## Windows shell check
 
@@ -68,6 +78,20 @@ These need a person, or a real install, and have **not** been done yet.
 - [ ] Press and drag anywhere along a slider
 - [ ] While typing text, drag Font size and pick a font: the box updates and typing carries on
 - [ ] Click text, then press Delete: it goes in one press
+- [ ] Select tool: drag moves around a zoomed image, and both scroll bars work
+
+**Screenshots and the drop box**
+
+- [ ] Ctrl+Alt+S takes a screenshot, and the app in use keeps focus
+- [ ] Win+Print Screen still works as normal
+- [ ] The screen under the mouse is captured when there are two monitors
+- [ ] Click the notification: the screenshot is saved and opens in PicKit
+- [ ] Swipe it away, then open PicKit: the screenshot comes up first, with Save and Trash
+- [ ] Ignore it: same result
+- [ ] Drag an image onto the drop box from Chrome and Edge, including one inside a link
+- [ ] Drag an image onto the drop box from File Explorer
+- [ ] Drag the box to another edge, and it stays there after signing out
+- [ ] After signing out and in again, the hotkey works without opening PicKit
 - [ ] Space + drag and middle-button drag pan
 - [ ] Drawing with a pen tablet feels smooth
 - [ ] Drag images and a folder onto the window from File Explorer

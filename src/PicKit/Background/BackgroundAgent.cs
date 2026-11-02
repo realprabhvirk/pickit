@@ -156,16 +156,22 @@ internal sealed class BackgroundAgent : AgentWindow
         _ = Task.Run(() => StoreScreenshot(image, time, thumbnailHeight));
     }
 
+    /// <summary>Puts a screenshot in the inbox as a PNG. The caller owns the returned thumbnail.</summary>
+    internal static (string Path, ImageBuffer Thumbnail) Store(ImageInbox inbox, ImageBuffer image, DateTime time, int thumbnailHeight)
+    {
+        var data = ImageEncoder.Encode(image, new EncodeOptions(ImageFormat.Png));
+        var path = inbox.Add(data, ImageInbox.ScreenshotName(time));
+        var thumbnailWidth = Math.Max(1, image.Width * thumbnailHeight / image.Height);
+        return (path, ImageOps.Resize(image, thumbnailWidth, thumbnailHeight));
+    }
+
     private void StoreScreenshot(ImageBuffer image, DateTime time, int thumbnailHeight)
     {
         using (image)
         {
             try
             {
-                var data = ImageEncoder.Encode(image, new EncodeOptions(ImageFormat.Png));
-                var path = _inbox.Add(data, ImageInbox.ScreenshotName(time));
-                var thumbnailWidth = Math.Max(1, image.Width * thumbnailHeight / image.Height);
-                var thumbnail = ImageOps.Resize(image, thumbnailWidth, thumbnailHeight);
+                var (path, thumbnail) = Store(_inbox, image, time, thumbnailHeight);
                 Post(() => ShowScreenshot(path, thumbnail));
             }
             catch (Exception ex) when (ex is ImageException or IOException or UnauthorizedAccessException)

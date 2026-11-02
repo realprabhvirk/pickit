@@ -2,7 +2,7 @@
 ; user's own profile is touched. Build with tools/build-installer.ps1.
 
 #define AppName "PicKit"
-#define AppVersion "1.0.1"
+#define AppVersion "1.1.0"
 #define Publisher "PicKit"
 #define PublishDir GetEnv("LOCALAPPDATA") + "\PicKit-build\publish"
 #define OutputFolder GetEnv("LOCALAPPDATA") + "\PicKit-build\installer"
@@ -37,6 +37,7 @@ RestartApplications=no
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
+Name: "background"; Description: "Keep PicKit running, for Ctrl+Alt+S screenshots and the drop box"
 Name: "explorermenu"; Description: "Show PicKit when right-clicking images in File Explorer"
 Name: "openwith"; Description: "List PicKit under ""Open with"" for image files"; Flags: unchecked
 Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
@@ -49,6 +50,8 @@ Name: "{group}\{#AppName}"; Filename: "{app}\PicKit.exe"
 Name: "{userdesktop}\{#AppName}"; Filename: "{app}\PicKit.exe"; Tasks: desktopicon
 
 [Run]
+Filename: "{app}\PicKit.exe"; Parameters: "--register-background"; Tasks: background; Flags: runhidden
+Filename: "{app}\PicKit.exe"; Parameters: "--background"; Tasks: background; Flags: runhidden nowait
 Filename: "{app}\PicKit.exe"; Parameters: "--register-menu"; Tasks: explorermenu; Flags: runhidden
 Filename: "{app}\PicKit.exe"; Parameters: "--register-open-with"; Tasks: openwith; Flags: runhidden
 Filename: "{app}\PicKit.exe"; Description: "Open PicKit"; Flags: nowait postinstall skipifsilent
@@ -58,3 +61,40 @@ Filename: "{app}\PicKit.exe"; Parameters: "--unregister"; Flags: runhidden; RunO
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{localappdata}\PicKit"
+
+[Code]
+const
+  EventModifyState = $0002;
+
+function OpenEventW(Access: Cardinal; Inherit: Boolean; Name: String): THandle;
+  external 'OpenEventW@kernel32.dll stdcall';
+function SetEvent(Handle: THandle): Boolean;
+  external 'SetEvent@kernel32.dll stdcall';
+function CloseHandle(Handle: THandle): Boolean;
+  external 'CloseHandle@kernel32.dll stdcall';
+
+{ The helper has its files open, so it has to go before they can be replaced or removed. }
+procedure StopBackgroundHelper();
+var
+  Stop: THandle;
+begin
+  Stop := OpenEventW(EventModifyState, False, 'Local\PicKit.Background.Stop');
+  if Stop <> 0 then
+  begin
+    SetEvent(Stop);
+    CloseHandle(Stop);
+    Sleep(1500);
+  end;
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  StopBackgroundHelper();
+  Result := '';
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usUninstall then
+    StopBackgroundHelper();
+end;

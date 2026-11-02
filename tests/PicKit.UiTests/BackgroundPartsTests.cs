@@ -191,6 +191,45 @@ public class BackgroundPartsTests
         Assert.Null(items.Url);
     }
 
+    [Fact]
+    public void A_screenshot_is_stored_as_an_exact_png_with_a_small_thumbnail()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "PicKitTests", Guid.NewGuid().ToString("N"));
+        var inbox = new ImageInbox(folder);
+        using var screen = ImageBuffer.Create(1920, 1200);
+        screen.Bitmap.Erase(SKColors.Teal);
+
+        var (path, thumbnail) = BackgroundAgent.Store(inbox, screen, new DateTime(2026, 11, 2, 18, 3, 12), 128);
+        using (thumbnail)
+        {
+            Assert.Equal("Screenshot 2026-11-02 180312.png", Path.GetFileName(path));
+            Assert.Equal((204, 128), (thumbnail.Width, thumbnail.Height));
+
+            using var stored = ImageDecoder.Decode(path);
+            Assert.Equal(ImageFormat.Png, stored.Format);
+            Assert.True(screen.Pixels.SequenceEqual(stored.Pixels.Pixels));
+        }
+
+        Directory.Delete(folder, recursive: true);
+    }
+
+    [Fact]
+    public void The_real_screen_can_be_read_without_anything_being_saved_or_shown()
+    {
+        try
+        {
+            // Held in memory for this check alone, and never written anywhere.
+            using var image = ScreenCapture.MonitorUnderCursor();
+
+            Assert.True(image.Width >= 640 && image.Height >= 480);
+            Assert.False(image.HasTransparency());
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // A locked PC has no screen to read, which the helper reports instead of crashing.
+        }
+    }
+
     private static void Save(SKBitmap bitmap, string name)
     {
         var folder = Environment.GetEnvironmentVariable("PICKIT_SHOTS") ?? Path.GetTempPath();
