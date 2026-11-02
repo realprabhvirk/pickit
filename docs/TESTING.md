@@ -44,6 +44,20 @@ Run against the real shell through `IContextMenu`, the interface File Explorer u
 
 Selections over 100 can be dragged onto the window instead. `--unregister` was confirmed to remove every key.
 
+## Installer check
+
+Run on 2026-11-02 on Windows 11, without administrator rights, using Inno Setup 6.7.3 and a silent install with the default options.
+
+| | |
+|---|---|
+| Installer size | 234 MB |
+| Installed files | All 257 match the published build, and the model's SHA-256 is correct |
+| Explorer menu | Registered for all 10 image types, pointing at the installed `PicKit.exe` |
+| Open with | Left unregistered, as it is off by default |
+| First launch from the install folder | Opened an image, on an invisible desktop, with first paint after 4 s |
+| Uninstall | Removed the app folder, Start menu entry, uninstall entry and every menu key |
+| File associations | Default apps were the same after install and after uninstall |
+
 ## Hands-on checks
 
 These need a person, or a real install, and have **not** been done yet.
@@ -64,11 +78,14 @@ These need a person, or a real install, and have **not** been done yet.
 
 **Install**
 
-- [ ] The installer builds and runs without administrator rights
+- [x] The installer builds and runs without administrator rights
+- [ ] The setup wizard's pages look right (the install above was silent)
 - [ ] Right-click one image, then Compress, on Windows 11 (under Show more options)
 - [ ] Select 50 images, right-click, Compress: one batch page opens
 - [ ] Open with shows PicKit, only if chosen during install
-- [ ] Uninstall removes the menu, Open with entry and app folder
+- [x] Uninstall removes the menu and app folder
+- [ ] Uninstall removes the Open with entry, if it was chosen during install
+- [ ] Installing over a running copy closes it cleanly
 
 **Windows 10**
 
