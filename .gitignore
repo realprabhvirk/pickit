@@ -18,3 +18,6 @@ models/*.onnx
 
 # Installer output
 installer/Output/
+
+# Installers are far over GitHub's file size limit, so they stay on this PC.
+Releases/
