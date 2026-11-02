@@ -7,22 +7,34 @@ using PicKit.Core.Files;
 using PicKit.Core.Imaging;
 using PicKit.Core.Settings;
 using PicKit.Services;
+using SkiaSharp;
 
 namespace PicKit.ViewModels;
 
 public sealed partial class MainViewModel : ObservableObject
 {
+    private static readonly TimeSpan NoticeDuration = TimeSpan.FromSeconds(2.5);
+
     private readonly SettingsStore _settings;
     private readonly DialogService _dialogs;
     private readonly DocumentSaver _saver;
+    private readonly ClipboardService _clipboard;
+    private CancellationTokenSource? _noticeTimer;
 
     [ObservableProperty]
     private bool _isLoading;
 
-    public MainViewModel(SettingsStore settings, DialogService dialogs)
+    [ObservableProperty]
+    private bool _canPasteFromClipboard;
+
+    [ObservableProperty]
+    private string? _noticeText;
+
+    public MainViewModel(SettingsStore settings, DialogService dialogs, ClipboardService clipboard)
     {
         _settings = settings;
         _dialogs = dialogs;
+        _clipboard = clipboard;
         _saver = new DocumentSaver(settings, dialogs);
         Editor = new EditorViewModel(dialogs, _saver);
         Editor.DocumentContentChanged += RefreshDocumentText;
@@ -118,6 +130,9 @@ public sealed partial class MainViewModel : ObservableObject
         };
     }
 
+    /// <summary>Checks the clipboard, so the empty window can offer a screenshot that's waiting there.</summary>
+    public void RefreshClipboardState() => CanPasteFromClipboard = _clipboard.ContainsImage();
+
     private bool CanSave() => HasImage && Editor.IsIdle;
 
     [RelayCommand]
@@ -131,6 +146,108 @@ public sealed partial class MainViewModel : ObservableObject
 
     [RelayCommand(CanExecute = nameof(CanSave))]
     private Task SaveAs() => _saver.SaveAsAsync(Editor);
+
+    [RelayCommand(CanExecute = nameof(CanSave))]
+    private Task Copy() => CopyToClipboardAsync(CopyMode.Standard);
+
+    [RelayCommand(CanExecute = nameof(CanSave))]
+    private Task CopyAsPng() => CopyToClipboardAsync(CopyMode.Png);
+
+    [RelayCommand(CanExecute = nameof(CanSave))]
+    private Task CopyAsJpeg() => CopyToClipboardAsync(CopyMode.Jpeg);
+
+    [RelayCommand]
+    private async Task PasteAsync()
+    {
+        var files = _clipboard.ReadFiles();
+        if (files.Count > 0)
+        {
+            OpenPaths(files);
+            return;
+        }
+
+        if (!_clipboard.ContainsImage())
+        {
+            ShowNotice("No image on the clipboard");
+            return;
+        }
+
+        if (!await ResolveUnsavedChangesAsync())
+        {
+            return;
+        }
+
+        var image = _clipboard.ReadImage();
+        if (image is null)
+        {
+            ShowNotice("No image on the clipboard");
+            return;
+        }
+
+        await Editor.WaitUntilIdleAsync();
+        ShowDocument(new EditorDocument(image, new DocumentSource(null, ImageFormat.Png, 0)));
+    }
+
+    private async Task CopyToClipboardAsync(CopyMode mode)
+    {
+        if (Editor.Document is not { } document)
+        {
+            return;
+        }
+
+        Editor.FlushPendingEdits();
+        Editor.BeginBusy("Copying...");
+        try
+        {
+            using var flattened = document.RenderFlattened();
+            var background = SKColor.TryParse(_settings.Current.TransparencyBackground, out var parsed) ? parsed : SKColors.White;
+            var items = await Task.Run(() => ClipboardCodec.Encode(flattened, mode, background));
+
+            if (_clipboard.Set(items))
+            {
+                ShowNotice("Copied to clipboard");
+            }
+            else
+            {
+                _dialogs.ShowError("Couldn't copy", "Another app is using the clipboard. Try again in a moment.");
+            }
+        }
+        catch (ImageException ex)
+        {
+            Log.Warn("Copy failed", ex);
+            _dialogs.ShowError("Couldn't copy", ex.Message, ex.Details);
+        }
+        finally
+        {
+            Editor.EndBusy();
+        }
+    }
+
+    private async void ShowNotice(string text)
+    {
+        _noticeTimer?.Cancel();
+        var timer = new CancellationTokenSource();
+        _noticeTimer = timer;
+        NoticeText = text;
+
+        try
+        {
+            await Task.Delay(NoticeDuration, timer.Token);
+            NoticeText = null;
+        }
+        catch (OperationCanceledException)
+        {
+            // A newer notice took over.
+        }
+    }
+
+    private void ShowDocument(EditorDocument document)
+    {
+        var previous = Editor.Document;
+        Editor.Document = document;
+        previous?.Dispose();
+        RefreshDocumentText();
+    }
 
     private async Task OpenAsync(string path)
     {
@@ -151,9 +268,7 @@ public sealed partial class MainViewModel : ObservableObject
 
             await Editor.WaitUntilIdleAsync();
 
-            var previous = Editor.Document;
-            Editor.Document = new EditorDocument(decoded.Pixels, source);
-            previous?.Dispose();
+            ShowDocument(new EditorDocument(decoded.Pixels, source));
 
             if (decoded.IsIncomplete)
             {
@@ -161,8 +276,6 @@ public sealed partial class MainViewModel : ObservableObject
                     "This image looks incomplete",
                     "Part of the file seems to be missing, so some of the picture may be blank. Saving keeps only what you can see.");
             }
-
-            RefreshDocumentText();
         }
         catch (ImageException ex)
         {
@@ -184,5 +297,8 @@ public sealed partial class MainViewModel : ObservableObject
         SaveCommand.NotifyCanExecuteChanged();
         SaveCopyCommand.NotifyCanExecuteChanged();
         SaveAsCommand.NotifyCanExecuteChanged();
+        CopyCommand.NotifyCanExecuteChanged();
+        CopyAsPngCommand.NotifyCanExecuteChanged();
+        CopyAsJpegCommand.NotifyCanExecuteChanged();
     }
 }

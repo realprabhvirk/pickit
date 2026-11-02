@@ -29,7 +29,7 @@ public partial class App : Application
         ImageDecoder.PlatformDecoder = WicDecoder.TryDecode;
         _settings = new SettingsStore();
 
-        var viewModel = new MainViewModel(_settings, new DialogService());
+        var viewModel = new MainViewModel(_settings, new DialogService(), new ClipboardService());
         var window = new MainWindow(viewModel, _settings);
         MainWindow = window;
         window.Show();

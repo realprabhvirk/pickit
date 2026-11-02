@@ -23,12 +23,13 @@ internal sealed class UiHarness : IDisposable
 {
     private static readonly Lazy<Dispatcher> UiThread = new(StartUiThread);
 
-    private UiHarness(MainWindow window, MainViewModel viewModel, string folder, ScriptedDialogs dialogs)
+    private UiHarness(MainWindow window, MainViewModel viewModel, string folder, ScriptedDialogs dialogs, FakeClipboard clipboard)
     {
         Window = window;
         ViewModel = viewModel;
         Folder = folder;
         Dialogs = dialogs;
+        Clipboard = clipboard;
     }
 
     public MainWindow Window { get; }
@@ -36,6 +37,8 @@ internal sealed class UiHarness : IDisposable
     public MainViewModel ViewModel { get; }
 
     public ScriptedDialogs Dialogs { get; }
+
+    public FakeClipboard Clipboard { get; }
 
     /// <summary>A private folder for this test's files.</summary>
     public string Folder { get; }
@@ -144,7 +147,8 @@ internal sealed class UiHarness : IDisposable
         settings.Current.RememberWindow = false;
 
         var dialogs = new ScriptedDialogs();
-        var viewModel = new MainViewModel(settings, dialogs);
+        var clipboard = new FakeClipboard();
+        var viewModel = new MainViewModel(settings, dialogs, clipboard);
         var window = new MainWindow(viewModel, settings)
         {
             ShowActivated = false,
@@ -157,7 +161,7 @@ internal sealed class UiHarness : IDisposable
         };
 
         window.Show();
-        var harness = new UiHarness(window, viewModel, folder, dialogs);
+        var harness = new UiHarness(window, viewModel, folder, dialogs, clipboard);
         harness.Pump();
         return harness;
     }

@@ -14,6 +14,8 @@
     <Window.InputBindings>
         <KeyBinding Command="{Binding OpenCommand}" Gesture="Ctrl+O" />
         <KeyBinding Command="{Binding SaveCommand}" Gesture="Ctrl+S" />
+        <KeyBinding Command="{Binding CopyCommand}" Gesture="Ctrl+C" />
+        <KeyBinding Command="{Binding PasteCommand}" Gesture="Ctrl+V" />
         <KeyBinding Command="{Binding SaveAsCommand}" Gesture="Ctrl+Shift+S" />
         <KeyBinding Command="{Binding Editor.UndoCommand}" Gesture="Ctrl+Z" />
         <KeyBinding Command="{Binding Editor.RedoCommand}" Gesture="Ctrl+Y" />
@@ -114,6 +116,32 @@
                         Fill="{DynamicResource DividerStrokeColorDefaultBrush}" />
 
                     <Button
+                        AutomationProperties.Name="Copy"
+                        Command="{Binding CopyCommand}"
+                        Style="{StaticResource CommandButton}"
+                        ToolTip="Copy image (Ctrl+C)">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource IconText}" Text="&#xE8C8;" />
+                            <TextBlock Margin="8,0,0,0" Text="Copy" />
+                        </StackPanel>
+                    </Button>
+                    <Button
+                        Margin="0,0,6,0"
+                        AutomationProperties.Name="More copy options"
+                        Click="OnDropDownMenu"
+                        Style="{StaticResource CommandButton}"
+                        ToolTip="More copy options">
+                        <TextBlock FontSize="12" Style="{StaticResource IconText}" Text="&#xE70D;" />
+                        <Button.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Command="{Binding CopyCommand}" Header="Copy" InputGestureText="Ctrl+C" />
+                                <MenuItem Command="{Binding CopyAsPngCommand}" Header="Copy as PNG" />
+                                <MenuItem Command="{Binding CopyAsJpegCommand}" Header="Copy as JPEG" />
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+
+                    <Button
                         Padding="14,5"
                         AutomationProperties.Name="Save"
                         Command="{Binding SaveCommand}"
@@ -123,7 +151,7 @@
                     <Button
                         Margin="4,0,0,0"
                         AutomationProperties.Name="More save options"
-                        Click="OnSaveMenu"
+                        Click="OnDropDownMenu"
                         Style="{StaticResource CommandButton}"
                         ToolTip="More save options">
                         <TextBlock FontSize="12" Style="{StaticResource IconText}" Text="&#xE70D;" />
@@ -273,7 +301,32 @@
                         Command="{Binding OpenCommand}"
                         Content="Open an image"
                         Style="{DynamicResource AccentButtonStyle}" />
+                    <TextBlock
+                        Margin="0,14,0,0"
+                        HorizontalAlignment="Center"
+                        Style="{StaticResource SecondaryText}"
+                        Text="You can also paste an image from your clipboard." />
+                    <Button
+                        Margin="0,10,0,0"
+                        HorizontalAlignment="Center"
+                        Command="{Binding PasteCommand}"
+                        Content="Paste image"
+                        Visibility="{Binding CanPasteFromClipboard, Converter={StaticResource BooleanToVisibility}}" />
                 </StackPanel>
+
+                <Border
+                    Margin="0,0,0,16"
+                    Padding="14,7"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Bottom"
+                    Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    IsHitTestVisible="False"
+                    Visibility="{Binding NoticeText, Converter={StaticResource NullToCollapsed}}">
+                    <TextBlock AutomationProperties.LiveSetting="Polite" Text="{Binding NoticeText}" />
+                </Border>
             </Grid>
 
             <!--  Contextual panel  -->

@@ -30,6 +30,7 @@ public partial class MainWindow : Window
         viewModel.Editor.Markup.PropertyChanged += OnMarkupToolChanged;
         viewModel.Editor.Text.PropertyChanged += OnMarkupToolChanged;
         Deactivated += (_, _) => Canvas.IsPanModifierHeld = false;
+        Activated += (_, _) => viewModel.RefreshClipboardState();
     }
 
     protected override async void OnClosing(CancelEventArgs e)
@@ -85,7 +86,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnSaveMenu(object sender, RoutedEventArgs e)
+    private void OnDropDownMenu(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { ContextMenu: { } menu } button)
         {
