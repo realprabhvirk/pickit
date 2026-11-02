@@ -4,6 +4,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using PicKit.Core.Settings;
+using PicKit.Core.Shell;
 using PicKit.ViewModels;
 using PicKit.ViewModels.Tools;
 
@@ -31,6 +32,7 @@ public partial class MainWindow : Window
         viewModel.Editor.Text.PropertyChanged += OnMarkupToolChanged;
         Deactivated += (_, _) => Canvas.IsPanModifierHeld = false;
         Activated += (_, _) => viewModel.RefreshClipboardState();
+        viewModel.ActivationRequested += BringToFront;
     }
 
     protected override async void OnClosing(CancelEventArgs e)
@@ -84,6 +86,22 @@ public partial class MainWindow : Window
         {
             Canvas.IsPanModifierHeld = false;
         }
+    }
+
+    private void BringToFront()
+    {
+        // Tests run an off-screen window that must never take focus from the desktop.
+        if (!ShowActivated)
+        {
+            return;
+        }
+
+        if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
+        }
+
+        Activate();
     }
 
     private void OnDropDownMenu(object sender, RoutedEventArgs e)
@@ -167,7 +185,7 @@ public partial class MainWindow : Window
     {
         if (e.Data.GetData(DataFormats.FileDrop) is string[] paths)
         {
-            _viewModel.OpenPaths(paths);
+            _viewModel.Handle(new LaunchRequest(ShellAction.Open, paths));
         }
     }
 

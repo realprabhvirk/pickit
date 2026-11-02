@@ -6,6 +6,7 @@ using PicKit.Core.Documents;
 using PicKit.Core.Files;
 using PicKit.Core.Imaging;
 using PicKit.Core.Settings;
+using PicKit.Core.Shell;
 using PicKit.Services;
 using SkiaSharp;
 
@@ -39,6 +40,9 @@ public sealed partial class MainViewModel : ObservableObject
         Editor = new EditorViewModel(dialogs, _saver);
         Editor.DocumentContentChanged += RefreshDocumentText;
     }
+
+    /// <summary>Asks the window to come to the front.</summary>
+    public event Action? ActivationRequested;
 
     public EditorViewModel Editor { get; }
 
@@ -103,6 +107,25 @@ public sealed partial class MainViewModel : ObservableObject
         if (paths.Count > 0)
         {
             _ = OpenAsync(paths[0]);
+        }
+    }
+
+    /// <summary>Carries out what Explorer or the command line asked for, and brings the window forward.</summary>
+    public void Handle(LaunchRequest request)
+    {
+        ActivationRequested?.Invoke();
+
+        var images = ImagePaths.Expand(request.Paths);
+        var missing = request.Paths.Count > 0 && images.Count == 0;
+        if (missing)
+        {
+            ShowNotice("That file isn't an image PicKit can open");
+            return;
+        }
+
+        if (images.Count > 0)
+        {
+            _ = HandleAsync(request.Action, images);
         }
     }
 
@@ -247,6 +270,70 @@ public sealed partial class MainViewModel : ObservableObject
         Editor.Document = document;
         previous?.Dispose();
         RefreshDocumentText();
+    }
+
+    private async Task HandleAsync(ShellAction action, IReadOnlyList<string> images)
+    {
+        if (action == ShellAction.Copy)
+        {
+            await CopyFileAsync(images[0]);
+            return;
+        }
+
+        await OpenAsync(images[0]);
+
+        switch (action)
+        {
+            case ShellAction.Compress:
+                ShowTool(EditorTab.Tools, Editor.Compress);
+                break;
+            case ShellAction.Convert:
+                ShowTool(EditorTab.Tools, Editor.Convert);
+                break;
+            case ShellAction.Resize:
+                ShowTool(EditorTab.Edit, Editor.Resize);
+                break;
+            case ShellAction.RemoveBackground:
+                ShowTool(EditorTab.Edit, Editor.Background);
+                break;
+        }
+    }
+
+    private void ShowTool(EditorTab tab, ToolViewModel tool)
+    {
+        if (HasImage)
+        {
+            Editor.SelectedTab = tab;
+            Editor.ActiveTool = tool;
+        }
+    }
+
+    /// <summary>Copies a file's picture to the clipboard, without disturbing whatever is open.</summary>
+    private async Task CopyFileAsync(string path)
+    {
+        try
+        {
+            var background = SKColor.TryParse(_settings.Current.TransparencyBackground, out var parsed) ? parsed : SKColors.White;
+            var items = await Task.Run(() =>
+            {
+                using var decoded = ImageDecoder.Decode(path);
+                return ClipboardCodec.Encode(decoded.Pixels, CopyMode.Standard, background);
+            });
+
+            if (_clipboard.Set(items))
+            {
+                ShowNotice("Copied to clipboard");
+            }
+            else
+            {
+                _dialogs.ShowError("Couldn't copy", "Another app is using the clipboard. Try again in a moment.");
+            }
+        }
+        catch (ImageException ex)
+        {
+            Log.Warn($"Could not copy {path}", ex);
+            _dialogs.ShowError("Couldn't copy", ex.Message, ex.Details);
+        }
     }
 
     private async Task OpenAsync(string path)

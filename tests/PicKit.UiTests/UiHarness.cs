@@ -172,7 +172,7 @@ internal sealed class UiHarness : IDisposable
         using var ready = new ManualResetEventSlim();
         var thread = new Thread(() =>
         {
-            var app = new App([]);
+            var app = new App(new LaunchInbox());
             app.InitializeComponent();
             app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             dispatcher = Dispatcher.CurrentDispatcher;

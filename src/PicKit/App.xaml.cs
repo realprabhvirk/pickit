@@ -12,12 +12,17 @@ namespace PicKit;
 
 public partial class App : Application
 {
-    private readonly string[] _arguments;
-    private SettingsStore? _settings;
+    /// <summary>Long enough for Explorer to finish starting one process per selected file.</summary>
+    private static readonly TimeSpan GatherDelay = TimeSpan.FromMilliseconds(350);
 
-    public App(string[] arguments)
+    private readonly LaunchInbox _inbox;
+    private DispatcherTimer? _gather;
+    private SettingsStore? _settings;
+    private MainViewModel? _viewModel;
+
+    public App(LaunchInbox inbox)
     {
-        _arguments = arguments;
+        _inbox = inbox;
         DispatcherUnhandledException += OnUnhandledUiException;
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
     }
@@ -29,12 +34,15 @@ public partial class App : Application
         ImageDecoder.PlatformDecoder = WicDecoder.TryDecode;
         _settings = new SettingsStore();
 
-        var viewModel = new MainViewModel(_settings, new DialogService(), new ClipboardService());
-        var window = new MainWindow(viewModel, _settings);
+        _viewModel = new MainViewModel(_settings, new DialogService(), new ClipboardService());
+        var window = new MainWindow(_viewModel, _settings);
         MainWindow = window;
         window.Show();
 
-        viewModel.OpenPaths(_arguments);
+        _gather = new DispatcherTimer(DispatcherPriority.Normal, Dispatcher) { Interval = GatherDelay };
+        _gather.Tick += OnGatherFinished;
+        _inbox.RequestArrived += OnRequestArrived;
+        OnRequestArrived();
 
         // Sweeping old temp folders can touch the disk, so it never delays the first paint.
         _ = Task.Run(TempFiles.SweepAbandonedSessions);
@@ -60,4 +68,24 @@ public partial class App : Application
 
     private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs e) =>
         Log.Error("Unhandled exception", e.ExceptionObject as Exception);
+
+    private void OnRequestArrived()
+    {
+        // Requests arrive on the listener thread, and each one restarts the wait, so that a
+        // whole selection is handled as one job.
+        Dispatcher.BeginInvoke(() =>
+        {
+            _gather?.Stop();
+            _gather?.Start();
+        });
+    }
+
+    private void OnGatherFinished(object? sender, EventArgs e)
+    {
+        _gather?.Stop();
+        foreach (var request in _inbox.TakeMerged())
+        {
+            _viewModel?.Handle(request);
+        }
+    }
 }
