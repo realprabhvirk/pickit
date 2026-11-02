@@ -4,8 +4,8 @@
 
 | Suite | Tests | Covers |
 |---|---|---|
-| `tests/PicKit.Tests` | 328 | Resize, crop, compression, conversion, undo, rename, batch, metadata, clipboard formats, Explorer registration |
-| `tests/PicKit.UiTests` | 116 | The real window end to end: every tool, save flows, prompts, batch, rename, display scaling, accessibility names |
+| `tests/PicKit.Tests` | 331 | Resize, crop, compression, conversion, undo, rename, batch, metadata, clipboard formats, Explorer registration |
+| `tests/PicKit.UiTests` | 137 | The real window end to end: every tool, save flows, prompts, batch, rename, display scaling, accessibility names |
 
 The UI tests run off-screen, never take focus, and use an in-memory clipboard, so they can run while the PC is being used. Registry tests write only under a throwaway key.
 
@@ -65,6 +65,9 @@ These need a person, or a real install, and have **not** been done yet.
 **Input**
 
 - [ ] Mouse wheel zooms around the cursor
+- [ ] Press and drag anywhere along a slider
+- [ ] While typing text, drag Font size and pick a font: the box updates and typing carries on
+- [ ] Click text, then press Delete: it goes in one press
 - [ ] Space + drag and middle-button drag pan
 - [ ] Drawing with a pen tablet feels smooth
 - [ ] Drag images and a folder onto the window from File Explorer

@@ -2,7 +2,7 @@
 ; user's own profile is touched. Build with tools/build-installer.ps1.
 
 #define AppName "PicKit"
-#define AppVersion "1.0.0"
+#define AppVersion "1.0.1"
 #define Publisher "PicKit"
 #define PublishDir GetEnv("LOCALAPPDATA") + "\PicKit-build\publish"
 #define OutputFolder GetEnv("LOCALAPPDATA") + "\PicKit-build\installer"

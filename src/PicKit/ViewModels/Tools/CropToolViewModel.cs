@@ -104,6 +104,7 @@ public sealed partial class CropToolViewModel : ToolViewModel
     {
         var box = _canvasTool.PixelBox;
         SizeText = $"{box.Width} × {box.Height}";
+        Editor.RedrawCanvas();
     }
 
     [RelayCommand]

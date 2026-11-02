@@ -126,6 +126,41 @@ public class MarkupTests
     }
 
     [Fact]
+    public void Every_preset_font_is_really_a_different_face()
+    {
+        Assert.Contains(TextFonts.Default, TextFonts.Available);
+        Assert.True(TextFonts.Available.Count >= 8);
+
+        var widths = TextFonts.Available
+            .Select(family => new TextElement { Style = Red, Position = new SKPoint(0, 0), Text = "Hamburgefonstiv", FontSize = 40, FontFamily = family }.Bounds.Width)
+            .ToList();
+
+        Assert.True(widths.Distinct().Count() > widths.Count / 2);
+        Assert.All(TextFonts.Available, family => Assert.Equal(family, TextFonts.Typeface(family).FamilyName, ignoreCase: true));
+    }
+
+    [Fact]
+    public void An_unknown_font_falls_back_instead_of_failing()
+    {
+        var element = new TextElement { Style = Red, Position = new SKPoint(20, 40), Text = "Hello", FontSize = 40, FontFamily = "No Such Font" };
+
+        using var image = Render(element);
+
+        Assert.True(element.Bounds.Width > 40);
+        Assert.DoesNotContain("No Such Font", TextFonts.Available);
+    }
+
+    [Fact]
+    public void Text_keeps_its_font_through_a_transform()
+    {
+        var text = new TextElement { Style = Red, Position = new SKPoint(10, 20), Text = "A", FontSize = 20, FontFamily = "Georgia" };
+
+        var moved = (TextElement)text.Transformed(SKMatrix.CreateScale(2, 2));
+
+        Assert.Equal("Georgia", moved.FontFamily);
+    }
+
+    [Fact]
     public void Text_renders_inside_its_measured_bounds()
     {
         var element = new TextElement { Style = Red, Position = new SKPoint(20, 40), Text = "Hello", FontSize = 40 };

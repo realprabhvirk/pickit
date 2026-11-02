@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Threading;
+using PicKit.Controls;
 using PicKit.Core.Diagnostics;
 using PicKit.Core.Files;
 using PicKit.Core.Imaging;
@@ -29,6 +30,7 @@ public partial class App : Application
         _inbox = inbox;
         DispatcherUnhandledException += OnUnhandledUiException;
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
+        SliderSeeking.Register();
     }
 
     protected override void OnStartup(StartupEventArgs e)

@@ -277,7 +277,29 @@
             </StackPanel>
 
             <StackPanel Margin="0,10,0,0" Visibility="{Binding ShowsFontSize, Converter={StaticResource BooleanToVisibility}}">
-                <TextBlock Style="{StaticResource FieldLabel}" Text="Font size" />
+                <TextBlock Style="{StaticResource FieldLabel}" Text="Font" />
+                <ListBox
+                    Margin="0,0,0,8"
+                    AutomationProperties.Name="Font"
+                    ItemContainerStyle="{StaticResource ChipItem}"
+                    ItemsSource="{Binding Fonts}"
+                    SelectedItem="{Binding FontFamily}"
+                    Style="{StaticResource PlainList}">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock
+                                AutomationProperties.Name="{Binding}"
+                                FontFamily="{Binding}"
+                                Text="{Binding}" />
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <TextBlock Style="{StaticResource FieldLabel}" Text="{Binding FontSize, StringFormat=Font size: {0:0}}" />
                 <Slider
                     AutomationProperties.Name="Font size"
                     IsSnapToTickEnabled="True"
@@ -300,11 +322,16 @@
                 Margin="0,14,0,0"
                 Style="{StaticResource BodyHint}"
                 Text="{Binding Hint}" />
-            <TextBlock
-                Margin="0,6,0,0"
-                Style="{StaticResource BodyHint}"
-                Text="Press Delete to remove the selected item."
-                Visibility="{Binding HasSelection, Converter={StaticResource BooleanToVisibility}}" />
+            <StackPanel Margin="0,10,0,0" Visibility="{Binding CanDelete, Converter={StaticResource BooleanToVisibility}}">
+                <Button
+                    HorizontalAlignment="Stretch"
+                    Command="{Binding DeleteItemCommand}"
+                    Content="Delete" />
+                <TextBlock
+                    Margin="0,6,0,0"
+                    Style="{StaticResource BodyHint}"
+                    Text="You can also press the Delete key." />
+            </StackPanel>
         </StackPanel>
     </DataTemplate>
 

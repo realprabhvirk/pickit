@@ -245,13 +245,13 @@ public sealed record ShapeElement : MarkupElement
 /// <summary>Text, positioned by the top-left of its first line and rotated around that point.</summary>
 public sealed record TextElement : MarkupElement
 {
-    private static readonly SKTypeface Typeface = SKTypeface.FromFamilyName("Segoe UI") ?? SKTypeface.Default;
-
     public required SKPoint Position { get; init; }
 
     public required string Text { get; init; }
 
     public required float FontSize { get; init; }
+
+    public string FontFamily { get; init; } = TextFonts.Default;
 
     public float Rotation { get; init; }
 
@@ -323,7 +323,7 @@ public sealed record TextElement : MarkupElement
 
     private string[] Lines => Text.Replace("\r\n", "\n").Split('\n');
 
-    private SKFont CreateFont() => new(Typeface, FontSize) { Subpixel = true, Edging = SKFontEdging.Antialias };
+    private SKFont CreateFont() => new(TextFonts.Typeface(FontFamily), FontSize) { Subpixel = true, Edging = SKFontEdging.Antialias };
 
     private SKSize MeasuredSize()
     {

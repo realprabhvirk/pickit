@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PicKit.Controls;
 using PicKit.Controls.Tools;
+using PicKit.Core.Documents;
 using PicKit.Core.Markup;
 using PicKit.Services;
 using SkiaSharp;
@@ -18,7 +19,11 @@ public sealed record ColorChoice(string Name, Color Color)
 }
 
 /// <summary>A piece of text being typed on the canvas, before it becomes markup.</summary>
-public sealed record TextEditSession(SKPoint Position, TextElement? Existing);
+public sealed record TextEditSession(
+    SKPoint Position,
+    TextElement? Existing,
+    EditorDocument Document,
+    ImmutableArray<MarkupElement> MarkupsBefore);
 
 /// <summary>
 /// Shared by the Markup, Text and Highlight tools, which differ only in which modes they offer.
@@ -35,6 +40,8 @@ public sealed partial class MarkupToolViewModel : ToolViewModel, IMarkupHost
     private ImmutableArray<MarkupElement> _elementsBeforeMove;
     private bool _isMovingSelection;
     private bool _isApplyingSelectionStyle;
+    private MarkupElement? _lastRestyled;
+    private long _lastRestyleRevision;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Mode))]
@@ -56,10 +63,17 @@ public sealed partial class MarkupToolViewModel : ToolViewModel, IMarkupHost
     private double _fontSize = 32;
 
     [ObservableProperty]
+    private string _fontFamily = TextFonts.Default;
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSelection))]
+    [NotifyPropertyChangedFor(nameof(CanDelete))]
+    [NotifyPropertyChangedFor(nameof(ShowsFontSize))]
+    [NotifyPropertyChangedFor(nameof(ShowsThickness))]
     private MarkupElement? _selected;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanDelete))]
     private TextEditSession? _textEdit;
 
     public MarkupToolViewModel(
@@ -110,17 +124,24 @@ public sealed partial class MarkupToolViewModel : ToolViewModel, IMarkupHost
 
     public MarkupMode Mode => SelectedMode.Mode;
 
-    public bool ShowsFontSize => Mode == MarkupMode.Text;
+    public bool ShowsFontSize => Mode == MarkupMode.Text || Selected is TextElement;
 
-    public bool ShowsThickness => Mode != MarkupMode.Text;
+    public bool ShowsThickness => !ShowsFontSize;
 
     public bool ShowsOpacity => _showsOpacity;
 
     public bool HasSelection => Selected is not null;
 
+    public bool CanDelete => HasSelection || TextEdit is not null;
+
+    public IReadOnlyList<string> Fonts => TextFonts.Available;
+
+    /// <summary>What's in the text box right now, kept here so it can be finished from anywhere.</summary>
+    public string PendingText { get; set; } = string.Empty;
+
     public string Hint => Mode switch
     {
-        MarkupMode.Text => "Click where the text should go. Ctrl+Enter or click away to finish.",
+        MarkupMode.Text => "Click where the text should go, then type. Click away to finish, or click text to change it.",
         MarkupMode.Highlight => "Drag over what you want to highlight.",
         MarkupMode.Select => "Click an item to select it, then drag to move it.",
         _ => "Hold Shift for straight lines and perfect shapes.",
@@ -145,9 +166,12 @@ public sealed partial class MarkupToolViewModel : ToolViewModel, IMarkupHost
 
     public override void Deactivate()
     {
-        CommitTextEdit(TextEdit?.Existing?.Text ?? string.Empty, cancel: true);
+        CommitTextEdit(string.Empty, cancel: true);
         Selected = null;
     }
+
+    /// <summary>Anything still being typed is on screen, so it belongs in what gets saved.</summary>
+    public override void FlushPending() => CommitTextEdit(PendingText);
 
     public void Commit(MarkupElement element)
     {
@@ -172,6 +196,7 @@ public sealed partial class MarkupToolViewModel : ToolViewModel, IMarkupHost
             if (element is TextElement text)
             {
                 FontSize = Math.Clamp(text.FontSize / ImageUnit, 8, 200);
+                FontFamily = text.FontFamily;
             }
 
             _isApplyingSelectionStyle = false;
@@ -210,23 +235,51 @@ public sealed partial class MarkupToolViewModel : ToolViewModel, IMarkupHost
 
     public void BeginText(SKPoint position, TextElement? existing)
     {
-        if (existing is not null)
+        if (Editor.Document is not { } document)
         {
-            Select(existing);
+            return;
         }
 
-        TextEdit = new TextEditSession(existing?.Position ?? position, existing);
+        // Selecting picks up the text's look. It then leaves the selection, because the box
+        // now stands in for it, and it's hidden so the old text doesn't show behind the box.
+        Select(existing);
+        Selected = null;
+
+        var before = document.Markups;
+        if (existing is not null)
+        {
+            document.PreviewMarkups(before.Remove(existing));
+        }
+
+        TextEdit = new TextEditSession(existing?.Position ?? position, existing, document, before);
     }
 
-    /// <summary>Ends typing. Empty text adds nothing, or removes the element if it was being edited.</summary>
+    /// <summary>
+    /// Ends typing and leaves the result selected. Empty text adds nothing, or removes the
+    /// element if it was being edited.
+    /// </summary>
     public void CommitTextEdit(string text, bool cancel = false)
     {
-        if (TextEdit is not { } session || Editor.Document is not { } document)
+        if (TextEdit is not { } session)
         {
             return;
         }
 
         TextEdit = null;
+        PendingText = string.Empty;
+
+        // The document may already have been closed, and then there's nothing left to change.
+        var document = session.Document;
+        if (!ReferenceEquals(document, Editor.Document))
+        {
+            return;
+        }
+
+        if (session.Existing is not null)
+        {
+            document.PreviewMarkups(session.MarkupsBefore);
+        }
+
         if (cancel)
         {
             return;
@@ -235,28 +288,32 @@ public sealed partial class MarkupToolViewModel : ToolViewModel, IMarkupHost
         var hasText = !string.IsNullOrWhiteSpace(text);
         if (session.Existing is { } existing)
         {
-            var updated = hasText
-                ? document.Markups.Replace(existing, existing with { Text = text, Style = CurrentStyle, FontSize = FontSizeInImagePixels })
-                : document.Markups.Remove(existing);
-
-            document.SetMarkups("Edit text", updated);
-            Selected = null;
+            var edited = existing with { Text = text, Style = CurrentStyle, FontSize = FontSizeInImagePixels, FontFamily = FontFamily };
+            document.SetMarkups("Edit text", hasText ? document.Markups.Replace(existing, edited) : document.Markups.Remove(existing));
+            Selected = hasText ? edited : null;
         }
         else if (hasText)
         {
-            Commit(new TextElement
+            var added = new TextElement
             {
                 Style = CurrentStyle,
                 Position = session.Position,
                 Text = text,
                 FontSize = FontSizeInImagePixels,
-            });
+                FontFamily = FontFamily,
+            };
+
+            Commit(added);
+            Selected = added;
         }
     }
 
-    /// <summary>Delete key: removes the selected element.</summary>
+    /// <summary>Delete key: removes the selected element, or the text being typed.</summary>
     public bool DeleteSelected()
     {
+        // Text goes through the document first, so Undo can bring it back.
+        FlushPending();
+
         if (Selected is { } element && Editor.Document is { } document)
         {
             document.SetMarkups("Delete markup", document.Markups.Remove(element));
@@ -281,6 +338,10 @@ public sealed partial class MarkupToolViewModel : ToolViewModel, IMarkupHost
 
     partial void OnFontSizeChanged(double value) => RestyleSelection();
 
+    partial void OnFontFamilyChanged(string value) => RestyleSelection();
+
+    partial void OnSelectedChanged(MarkupElement? value) => Editor.RedrawCanvas();
+
     partial void OnSelectedModeChanged(MarkupModeChoice value)
     {
         if (value.Mode != MarkupMode.Select)
@@ -297,16 +358,36 @@ public sealed partial class MarkupToolViewModel : ToolViewModel, IMarkupHost
         }
 
         var restyled = element is TextElement text
-            ? text with { Style = CurrentStyle, FontSize = FontSizeInImagePixels }
+            ? text with { Style = CurrentStyle, FontSize = FontSizeInImagePixels, FontFamily = FontFamily }
             : element.Restyled(CurrentStyle);
 
-        document.SetMarkups("Change markup", document.Markups.Replace(element, restyled));
+        // Dragging a slider sends a stream of small changes, which undo as one. A save ends
+        // the run, so that later changes still count as unsaved.
+        var updated = document.Markups.Replace(element, restyled);
+        var continuesLastChange = ReferenceEquals(element, _lastRestyled)
+            && document.IsDirty
+            && document.History.Revision == _lastRestyleRevision;
+
+        if (continuesLastChange)
+        {
+            document.PreviewMarkups(updated);
+        }
+        else
+        {
+            document.SetMarkups("Change markup", updated);
+        }
+
+        _lastRestyled = restyled;
+        _lastRestyleRevision = document.History.Revision;
         Selected = restyled;
     }
 
     private static SKColor ToSkia(Color color) => new(color.R, color.G, color.B);
 
     private static Color FromSkia(SKColor color) => Color.FromRgb(color.Red, color.Green, color.Blue);
+
+    [RelayCommand]
+    private void DeleteItem() => DeleteSelected();
 
     [RelayCommand]
     private void ChooseSwatch(ColorChoice choice) => Color = choice.Color;

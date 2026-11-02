@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using PicKit.Core.Settings;
 using PicKit.Core.Shell;
 using PicKit.ViewModels;
@@ -124,10 +125,20 @@ public partial class MainWindow : Window
 
     private void OnMarkupToolChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(MarkupToolViewModel.TextEdit) && sender is MarkupToolViewModel tool)
+        if (sender is not MarkupToolViewModel tool)
+        {
+            return;
+        }
+
+        if (e.PropertyName == nameof(MarkupToolViewModel.TextEdit))
         {
             _textTool = tool;
             ShowTextEntry(tool);
+        }
+        else if (tool.TextEdit is not null
+            && e.PropertyName is nameof(MarkupToolViewModel.FontSize) or nameof(MarkupToolViewModel.FontFamily) or nameof(MarkupToolViewModel.Color))
+        {
+            StyleTextEntry(tool);
         }
     }
 
@@ -143,18 +154,25 @@ public partial class MainWindow : Window
         var view = Canvas.View;
         var scale = view.DeviceScale;
         var position = view.ImageToView(session.Position);
-        var text = session.Existing;
 
         System.Windows.Controls.Canvas.SetLeft(TextEntry, position.X / scale);
         System.Windows.Controls.Canvas.SetTop(TextEntry, position.Y / scale);
 
-        TextEntry.FontSize = (text?.FontSize ?? tool.FontSizeInImagePixels) * view.Zoom / scale;
-        TextEntry.Foreground = new SolidColorBrush(tool.Color);
-        TextEntry.CaretBrush = TextEntry.Foreground;
-        TextEntry.Text = text?.Text ?? string.Empty;
+        StyleTextEntry(tool);
+        TextEntry.Text = session.Existing?.Text ?? string.Empty;
         TextEntry.Visibility = Visibility.Visible;
         TextEntry.Focus();
         TextEntry.SelectAll();
+    }
+
+    /// <summary>Makes the box match what would be drawn, so changes show while typing.</summary>
+    private void StyleTextEntry(MarkupToolViewModel tool)
+    {
+        var view = Canvas.View;
+        TextEntry.FontFamily = new FontFamily(tool.FontFamily);
+        TextEntry.FontSize = tool.FontSizeInImagePixels * view.Zoom / view.DeviceScale;
+        TextEntry.Foreground = new SolidColorBrush(tool.Color);
+        TextEntry.CaretBrush = TextEntry.Foreground;
     }
 
     private void FinishTextEntry(bool cancel)
@@ -171,6 +189,14 @@ public partial class MainWindow : Window
         Canvas.Focus();
     }
 
+    private void OnTextEntryChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        if (_textTool is { } tool)
+        {
+            tool.PendingText = TextEntry.Text;
+        }
+    }
+
     private void OnTextEntryKeyDown(object sender, KeyEventArgs e)
     {
         // Enter makes a new line, as in any text box; Ctrl+Enter finishes, Escape abandons.
@@ -184,9 +210,58 @@ public partial class MainWindow : Window
             FinishTextEntry(cancel: false);
             e.Handled = true;
         }
+        else if (e.Key == Key.Delete && Keyboard.Modifiers == ModifierKeys.None && DeleteRemovesWholeText())
+        {
+            _textTool?.DeleteSelected();
+            Canvas.Focus();
+            e.Handled = true;
+        }
     }
 
-    private void OnTextEntryLostFocus(object sender, KeyboardFocusChangedEventArgs e) => FinishTextEntry(cancel: false);
+    /// <summary>
+    /// With everything selected, or nothing after the caret, Delete has no single character
+    /// to remove, so it takes the whole text instead of leaving it to be backspaced away.
+    /// </summary>
+    private bool DeleteRemovesWholeText() =>
+        TextEntry.SelectionLength == TextEntry.Text.Length
+        || (TextEntry.SelectionLength == 0 && TextEntry.CaretIndex == TextEntry.Text.Length);
+
+    private void OnTextEntryLostFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        // Reaching for the size, colour or font mustn't end the typing they're changing, and
+        // nor should a colour dialog or a look at another app.
+        if (e.NewFocus is null || (e.NewFocus is Visual target && ToolPanel.IsAncestorOf(target)))
+        {
+            return;
+        }
+
+        FinishTextEntry(cancel: false);
+    }
+
+    /// <summary>Clicking away while typing only finishes the text, leaving it selected.</summary>
+    private void OnCanvasPressed(object sender, MouseButtonEventArgs e)
+    {
+        if (_textTool?.TextEdit is not null)
+        {
+            FinishTextEntry(cancel: false);
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>Hands the keyboard back after a panel click, so typing can carry straight on.</summary>
+    private void OnToolPanelMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_textTool?.TextEdit is not null)
+        {
+            Dispatcher.BeginInvoke(DispatcherPriority.Input, () =>
+            {
+                if (_textTool?.TextEdit is not null)
+                {
+                    TextEntry.Focus();
+                }
+            });
+        }
+    }
 
     private void OnDrop(object sender, DragEventArgs e)
     {

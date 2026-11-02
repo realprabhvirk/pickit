@@ -26,6 +26,7 @@ public sealed partial class PresetToolViewModel : ToolViewModel
     public PresetToolViewModel(EditorViewModel editor)
         : base(editor)
     {
+        _cropGuide.BoxChanged += Editor.RedrawCanvas;
     }
 
     public IReadOnlyList<PresetGroup> Groups => _groups ??= PresetCatalog.Load().Groups;
