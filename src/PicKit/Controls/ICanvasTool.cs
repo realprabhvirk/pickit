@@ -19,6 +19,12 @@ public interface ICanvasTool
     /// <summary>Cursor for the current position, or null for the default.</summary>
     Cursor? CursorAt(CanvasPointer pointer);
 
+    /// <summary>
+    /// Lets a tool show the image differently, such as through a mask. Returns false to use
+    /// the normal drawing.
+    /// </summary>
+    bool DrawImage(SKCanvas canvas, SKImage image, SKRect bounds, SKSamplingOptions sampling, double zoom) => false;
+
     /// <summary>Draws work in progress in image coordinates, clipped to the image.</summary>
     void DrawOnImage(SKCanvas canvas)
     {

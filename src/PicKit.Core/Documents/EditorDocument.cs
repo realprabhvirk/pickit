@@ -70,6 +70,16 @@ public sealed class EditorDocument : IDisposable
         Changed?.Invoke(new DocumentChange(DocumentChangeKind.Replaced, Pixels.Bounds));
     }
 
+    /// <summary>Replaces the image with one that already has all markup burned into it.</summary>
+    public void BakeAndReplace(string label, ImageBuffer newPixels)
+    {
+        History.Push(new ReplacePixelsStep(label, Pixels, Markups));
+        Pixels = newPixels;
+        Markups = [];
+        HasPixelEdits = true;
+        Changed?.Invoke(new DocumentChange(DocumentChangeKind.Replaced, Pixels.Bounds));
+    }
+
     /// <summary>Overwrites a rectangle. <paramref name="patch"/> must match the rectangle's size.</summary>
     public void PatchRegion(string label, SKRectI region, ImageBuffer patch)
     {

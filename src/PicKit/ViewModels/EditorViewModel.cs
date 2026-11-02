@@ -99,7 +99,9 @@ public sealed partial class EditorViewModel : ObservableObject
         Pixelate = new PixelateToolViewModel(this);
         Redact = new RedactToolViewModel(this);
 
-        EditTools = [Crop, Resize, Rotate, Markup, Text, Highlight, Blur, Pixelate, Redact];
+        Background = new BackgroundToolViewModel(this);
+
+        EditTools = [Crop, Resize, Rotate, Markup, Text, Highlight, Blur, Pixelate, Redact, Background];
 
         Compress = new CompressToolViewModel(this, saver, dialogs);
         Convert = new ConvertToolViewModel(this, saver, dialogs);
@@ -132,6 +134,8 @@ public sealed partial class EditorViewModel : ObservableObject
 
     public RedactToolViewModel Redact { get; }
 
+    public BackgroundToolViewModel Background { get; private set; }
+
     public CompressToolViewModel Compress { get; }
 
     public ConvertToolViewModel Convert { get; }
@@ -155,7 +159,11 @@ public sealed partial class EditorViewModel : ObservableObject
     public string RedoToolTip => Document?.History.RedoLabel is { } label ? $"Redo {label} (Ctrl+Y)" : "Redo (Ctrl+Y)";
 
     /// <summary>Tools call this when their canvas behaviour changes while they stay active.</summary>
-    public void RefreshCanvasTool() => OnPropertyChanged(nameof(CanvasTool));
+    public void RefreshCanvasTool()
+    {
+        OnPropertyChanged(nameof(CanvasTool));
+        NotifyToolHistoryChanged();
+    }
 
     /// <summary>Runs a pixel operation off the UI thread, then applies it as one undoable step.</summary>
     public async Task ApplyAsync(string label, Func<ImageBuffer, ImageBuffer> operation, Func<SKMatrix?>? markupMapping = null)
@@ -252,6 +260,19 @@ public sealed partial class EditorViewModel : ObservableObject
 
     public void RedrawCanvas() => RedrawRequested?.Invoke();
 
+    /// <summary>Points the tool at another model, for tests of what happens when it's missing.</summary>
+    public BackgroundToolViewModel UseBackgroundModel(Core.Segmentation.SegmentationModel model)
+    {
+        Background = new BackgroundToolViewModel(this, model);
+        return Background;
+    }
+
+    public void NotifyToolHistoryChanged()
+    {
+        UndoCommand.NotifyCanExecuteChanged();
+        RedoCommand.NotifyCanExecuteChanged();
+    }
+
     public void BeginBusy(string text)
     {
         IsBusy = true;
@@ -300,6 +321,7 @@ public sealed partial class EditorViewModel : ObservableObject
     {
         oldValue?.Deactivate();
         newValue?.Activate();
+        NotifyToolHistoryChanged();
     }
 
     partial void OnSelectedTabChanged(EditorTab value)
@@ -331,15 +353,35 @@ public sealed partial class EditorViewModel : ObservableObject
         OnPropertyChanged(nameof(RedoToolTip));
     }
 
-    private bool CanUndo() => IsIdle && Document?.History.CanUndo == true;
+    private bool CanUndo() => IsIdle && (ActiveTool?.History?.CanUndo ?? Document?.History.CanUndo) == true;
 
-    private bool CanRedo() => IsIdle && Document?.History.CanRedo == true;
+    private bool CanRedo() => IsIdle && (ActiveTool?.History?.CanRedo ?? Document?.History.CanRedo) == true;
 
     [RelayCommand(CanExecute = nameof(CanUndo))]
-    private void Undo() => Document?.Undo();
+    private void Undo()
+    {
+        if (ActiveTool?.History is { } history)
+        {
+            history.Undo();
+        }
+        else
+        {
+            Document?.Undo();
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(CanRedo))]
-    private void Redo() => Document?.Redo();
+    private void Redo()
+    {
+        if (ActiveTool?.History is { } history)
+        {
+            history.Redo();
+        }
+        else
+        {
+            Document?.Redo();
+        }
+    }
 
     /// <summary>Escape: backs out of whatever is in progress, then out of the tool.</summary>
     [RelayCommand]

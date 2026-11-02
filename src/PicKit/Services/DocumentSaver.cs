@@ -37,6 +37,12 @@ public sealed class DocumentSaver
             return SaveAsAsync(editor);
         }
 
+        // A JPEG can't hold the transparency just added, so don't flatten it over the original.
+        if (!ImageFormats.SupportsTransparency(format) && HasTransparency(editor, document))
+        {
+            return SaveAsAsync(editor, ExportService.OutputPathFor(path, "transparent", ImageFormat.Png), ImageFormat.Png);
+        }
+
         if (_settings.Current.ConfirmOverwrite && !ConfirmReplace(document, path))
         {
             return Task.FromResult(false);
@@ -57,15 +63,17 @@ public sealed class DocumentSaver
         return WriteAsync(editor, target, document.Source.Format, becomesSource: false);
     }
 
-    public Task<bool> SaveAsAsync(EditorViewModel editor)
+    public Task<bool> SaveAsAsync(EditorViewModel editor, string? suggestedPath = null, ImageFormat? suggestedFormat = null)
     {
         if (editor.Document is not { } document)
         {
             return Task.FromResult(false);
         }
 
-        var suggested = document.Source.Path ?? "Pasted image";
-        var preferred = ImageFormats.CanEncode(document.Source.Format) ? document.Source.Format : DefaultFormat();
+        var suggested = suggestedPath ?? document.Source.Path ?? "Pasted image";
+        var preferred = suggestedFormat
+            ?? (ImageFormats.CanEncode(document.Source.Format) ? document.Source.Format : DefaultFormat());
+
         var picked = _dialogs.PickSavePath(suggested, preferred);
         if (picked is null)
         {
@@ -115,6 +123,12 @@ public sealed class DocumentSaver
             Log.Warn("Could not read the original's metadata", ex);
             return null;
         }
+    }
+
+    private static bool HasTransparency(EditorViewModel editor, EditorDocument document)
+    {
+        editor.FlushPendingEdits();
+        return document.Pixels.HasTransparency();
     }
 
     private ImageFormat DefaultFormat() =>

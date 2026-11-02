@@ -130,6 +130,24 @@ public static class ImageOps
         return target;
     }
 
+    /// <summary>Multiplies each pixel by a mask's alpha, leaving real transparency.</summary>
+    public static ImageBuffer ApplyMask(ImageBuffer source, ImageBuffer mask)
+    {
+        var target = ImageBuffer.Create(source.Width, source.Height);
+        Parallel.For(0, source.Height, y =>
+        {
+            var from = source.Row(y);
+            var keep = mask.Row(y);
+            var to = target.Row(y);
+            for (var x = 0; x < from.Length; x++)
+            {
+                to[x] = Scale(from[x], keep[x] >> 24);
+            }
+        });
+
+        return target;
+    }
+
     /// <summary>Expands a box to cover every pixel it touches, so a privacy edit can't miss an edge.</summary>
     public static SKRectI CoveringPixels(SKRect box, int width, int height)
     {
@@ -138,6 +156,19 @@ public static class ImageOps
         var right = Math.Clamp((int)Math.Ceiling(Math.Max(box.Left, box.Right)), 0, width);
         var bottom = Math.Clamp((int)Math.Ceiling(Math.Max(box.Top, box.Bottom)), 0, height);
         return new SKRectI(left, top, right, bottom);
+    }
+
+    private static uint Scale(uint pixel, uint amount)
+    {
+        if (amount == 255)
+        {
+            return pixel;
+        }
+
+        const uint evenChannels = 0x00FF00FF;
+        var even = (((pixel & evenChannels) * amount) + 0x00800080) >> 8;
+        var odd = ((((pixel >> 8) & evenChannels) * amount) + 0x00800080) >> 8;
+        return (even & evenChannels) | ((odd & evenChannels) << 8);
     }
 
     private static void FillBlockWithAverage(Span<uint> pixels, int stride, int left, int top, int right, int bottom)

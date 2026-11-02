@@ -3,6 +3,18 @@ using PicKit.Controls;
 
 namespace PicKit.ViewModels;
 
+/// <summary>A tool's private undo history, which takes over from the document's while it's open.</summary>
+public interface IToolHistory
+{
+    bool CanUndo { get; }
+
+    bool CanRedo { get; }
+
+    void Undo();
+
+    void Redo();
+}
+
 /// <summary>One tool: its entry in the rail, its contextual panel, and its behaviour over the canvas.</summary>
 public abstract class ToolViewModel : ObservableObject
 {
@@ -19,6 +31,8 @@ public abstract class ToolViewModel : ObservableObject
     public virtual string? ShortcutHint => null;
 
     public virtual ICanvasTool? CanvasTool => null;
+
+    public virtual IToolHistory? History => null;
 
     protected EditorViewModel Editor { get; }
 

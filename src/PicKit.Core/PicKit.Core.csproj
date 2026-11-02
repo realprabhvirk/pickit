@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <PackageReference Include="MetadataExtractor" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" />
     <PackageReference Include="SkiaSharp" />
   </ItemGroup>
 

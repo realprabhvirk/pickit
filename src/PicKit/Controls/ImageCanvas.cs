@@ -267,7 +267,11 @@ public sealed class ImageCanvas : FrameworkElement
         var source = _pyramid?.ForZoom(View.Zoom) ?? image;
         using var skiaImage = source.AsImage();
         var filter = View.Zoom >= NearestNeighbourFromZoom ? SKFilterMode.Nearest : SKFilterMode.Linear;
-        canvas.DrawImage(skiaImage, bounds, new SKSamplingOptions(filter));
+        var sampling = new SKSamplingOptions(filter);
+        if (Tool?.DrawImage(canvas, skiaImage, bounds, sampling, View.Zoom) != true)
+        {
+            canvas.DrawImage(skiaImage, bounds, sampling);
+        }
 
         canvas.Save();
         canvas.ClipRect(bounds);
