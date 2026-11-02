@@ -1,6 +1,7 @@
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using PicKit.Core.Background;
 using PicKit.Core.Diagnostics;
 using PicKit.Core.Settings;
 using PicKit.Core.Shell;
@@ -17,6 +18,18 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly RecentFiles _recent;
     private readonly ShellRegistration _shell;
     private readonly Action _recentCleared;
+    private readonly BackgroundSettingsStore _backgroundSettings;
+    private readonly BackgroundControl? _backgroundControl;
+    private readonly DialogService? _dialogs;
+
+    [ObservableProperty]
+    private bool _runInBackground;
+
+    [ObservableProperty]
+    private bool _showDropBox;
+
+    [ObservableProperty]
+    private string _saveFolder;
 
     [ObservableProperty]
     private bool _confirmOverwrite;
@@ -51,12 +64,25 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string? _statusText;
 
-    public SettingsViewModel(SettingsStore settings, RecentFiles recent, ShellRegistration shell, Action recentCleared)
+    public SettingsViewModel(
+        SettingsStore settings,
+        RecentFiles recent,
+        ShellRegistration shell,
+        Action recentCleared,
+        BackgroundSettingsStore? background = null,
+        BackgroundControl? backgroundControl = null,
+        DialogService? dialogs = null)
     {
         _settings = settings;
         _recent = recent;
         _shell = shell;
         _recentCleared = recentCleared;
+        _backgroundSettings = background ?? new BackgroundSettingsStore();
+        _backgroundControl = backgroundControl;
+        _dialogs = dialogs;
+        _runInBackground = shell.IsBackgroundRegistered;
+        _showDropBox = _backgroundSettings.Load().ShowDropBox;
+        _saveFolder = _backgroundSettings.SaveFolder;
 
         var current = settings.Current;
         _confirmOverwrite = current.ConfirmOverwrite;
@@ -101,6 +127,28 @@ public sealed partial class SettingsViewModel : ObservableObject
         AppearanceService.Apply(value);
     }
 
+    partial void OnRunInBackgroundChanged(bool value)
+    {
+        ChangeIntegration(value ? _shell.RegisterBackground : _shell.UnregisterBackground);
+        if (value)
+        {
+            _backgroundControl?.Start();
+        }
+        else
+        {
+            _backgroundControl?.Stop();
+        }
+    }
+
+    partial void OnShowDropBoxChanged(bool value)
+    {
+        _backgroundSettings.Update(settings => settings.ShowDropBox = value);
+        if (RunInBackground)
+        {
+            _backgroundControl?.Restart();
+        }
+    }
+
     partial void OnExplorerMenuChanged(bool value) =>
         ChangeIntegration(value ? _shell.RegisterMenu : _shell.UnregisterMenu);
 
@@ -124,6 +172,16 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             Log.Warn("Could not change Explorer integration", ex);
             StatusText = "PicKit couldn't change this setting.";
+        }
+    }
+
+    [RelayCommand]
+    private void ChooseSaveFolder()
+    {
+        if (_dialogs?.PickFolder() is { } folder)
+        {
+            _backgroundSettings.Update(settings => settings.SaveFolder = folder);
+            SaveFolder = folder;
         }
     }
 

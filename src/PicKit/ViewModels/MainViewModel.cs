@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using PicKit.Core.Background;
 using PicKit.Core.Batch;
 using PicKit.Core.Diagnostics;
 using PicKit.Core.Documents;
@@ -29,8 +30,11 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly DocumentSaver _saver;
     private readonly ClipboardService _clipboard;
     private readonly RecentFiles _recent;
+    private readonly ImageInbox _inbox;
+    private readonly BackgroundSettingsStore _background;
     private CancellationTokenSource? _noticeTimer;
     private bool _isSyncingSelection;
+    private bool _hasHandledLaunch;
 
     [ObservableProperty]
     private bool _isLoading;
@@ -50,16 +54,29 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private OpenImage? _selectedImage;
 
-    public MainViewModel(SettingsStore settings, DialogService dialogs, ClipboardService clipboard, RecentFiles? recent = null)
+    /// <summary>The inbox file behind the open image, while it hasn't been saved or trashed.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsWaitingImage))]
+    private string? _waitingPath;
+
+    public MainViewModel(
+        SettingsStore settings,
+        DialogService dialogs,
+        ClipboardService clipboard,
+        RecentFiles? recent = null,
+        ImageInbox? inbox = null,
+        BackgroundSettingsStore? background = null)
     {
         _settings = settings;
         _dialogs = dialogs;
         _clipboard = clipboard;
         _recent = recent ?? new RecentFiles();
+        _inbox = inbox ?? new ImageInbox(trash: RecycleBin.Send);
+        _background = background ?? new BackgroundSettingsStore();
         RefreshRecent();
         _saver = new DocumentSaver(settings, dialogs);
         Editor = new EditorViewModel(dialogs, _saver);
-        Editor.DocumentContentChanged += RefreshDocumentText;
+        Editor.DocumentContentChanged += OnDocumentContentChanged;
     }
 
     /// <summary>Asks the window to come to the front.</summary>
@@ -81,6 +98,8 @@ public sealed partial class MainViewModel : ObservableObject
     public bool HasRecentImages => RecentImages.Count > 0;
 
     public bool HasMultipleImages => OpenImages.Count > 1;
+
+    public bool IsWaitingImage => WaitingPath is not null;
 
     /// <summary>Where the last rename is remembered. Replaced in tests.</summary>
     public string? RenameHistoryPath { get; init; }
@@ -144,9 +163,17 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>Carries out what Explorer or the command line asked for, and brings the window forward.</summary>
     public void Handle(LaunchRequest request, bool bringToFront = true)
     {
+        _hasHandledLaunch = true;
         if (bringToFront)
         {
             ActivationRequested?.Invoke();
+        }
+
+        // Opened from Windows with nothing to open, so anything waiting comes up first.
+        if (request.Action == ShellAction.Open && request.Paths.Count == 0)
+        {
+            ShowWaitingImages();
+            return;
         }
 
         var images = ImagePaths.Expand(request.Paths);
@@ -157,6 +184,65 @@ public sealed partial class MainViewModel : ObservableObject
         else if (images.Count > 0)
         {
             _ = HandleAsync(request.Action, images);
+        }
+    }
+
+    /// <summary>
+    /// Brings up anything waiting in the inbox. An empty window opens the newest; otherwise
+    /// they join the strip, so whatever's being worked on isn't pulled away.
+    /// </summary>
+    public void ShowWaitingImages()
+    {
+        if (!_hasHandledLaunch || IsLoading)
+        {
+            return;
+        }
+
+        var waiting = _inbox.Waiting.Where(path => OpenImages.All(image => image.Path != path)).ToList();
+        if (waiting.Count == 0)
+        {
+            return;
+        }
+
+        if (Editor.Document is null && Page is null)
+        {
+            SetOpenImages(waiting);
+            _ = LoadAsync(waiting[0]);
+            return;
+        }
+
+        foreach (var path in waiting)
+        {
+            OpenImages.Add(new OpenImage(path));
+        }
+
+        OnOpenImagesChanged();
+    }
+
+    /// <summary>Opens whatever was dragged in, fetching it first if only its address came.</summary>
+    public async Task OpenDroppedAsync(DroppedItems items)
+    {
+        if (items.Paths.Count > 0)
+        {
+            OpenPaths(items.Paths);
+            return;
+        }
+
+        var file = items.File;
+        if (file is null && items.Url is { } address)
+        {
+            IsLoading = true;
+            file = await ImageFetcher.FetchAsync(address);
+            IsLoading = false;
+        }
+
+        if ((file is null ? null : _inbox.AddDropped(file)) is { } path)
+        {
+            OpenPaths([path]);
+        }
+        else
+        {
+            ShowNotice("That isn't an image PicKit can open");
         }
     }
 
@@ -176,7 +262,10 @@ public sealed partial class MainViewModel : ObservableObject
         _settings,
         _recent,
         ShellRegistration.ForCurrentUser(Environment.ProcessPath!),
-        RefreshRecent);
+        RefreshRecent,
+        _background,
+        new BackgroundControl(),
+        _dialogs);
 
     /// <summary>Keeps Close safe while a batch is running.</summary>
     public void CancelBackgroundWork() => (Page as BatchViewModel)?.CancelIfRunning();
@@ -199,7 +288,7 @@ public sealed partial class MainViewModel : ObservableObject
 
         return _dialogs.AskAboutUnsavedChanges(document.Source.DisplayName) switch
         {
-            UnsavedChoice.Save => await _saver.SaveAsync(Editor),
+            UnsavedChoice.Save => await SaveCurrentAsync(),
             UnsavedChoice.Discard => true,
             _ => false,
         };
@@ -214,7 +303,7 @@ public sealed partial class MainViewModel : ObservableObject
     private void Open() => OpenPaths(_dialogs.PickImages());
 
     [RelayCommand(CanExecute = nameof(CanSave))]
-    private Task Save() => _saver.SaveAsync(Editor);
+    private Task Save() => SaveCurrentAsync();
 
     [RelayCommand(CanExecute = nameof(CanSave))]
     private Task SaveCopy() => _saver.SaveCopyAsync(Editor);
@@ -263,6 +352,130 @@ public sealed partial class MainViewModel : ObservableObject
         Page = null;
         SetOpenImages([]);
         ShowDocument(new EditorDocument(image, new DocumentSource(null, ImageFormat.Png, 0)));
+    }
+
+    private Task<bool> SaveCurrentAsync() => IsWaitingImage ? KeepWaitingImageAsync() : _saver.SaveAsync(Editor);
+
+    /// <summary>Moves a waiting image out to the save folder, along with any edits made to it.</summary>
+    [RelayCommand]
+    private async Task KeepWaitingAsync() => await KeepWaitingImageAsync();
+
+    private async Task<bool> KeepWaitingImageAsync()
+    {
+        if (WaitingPath is not { } path || Editor.Document is not { } document)
+        {
+            return false;
+        }
+
+        Editor.FlushPendingEdits();
+
+        string kept;
+        try
+        {
+            kept = _inbox.Keep(path, _background.SaveFolder);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log.Warn("Could not save a waiting image", ex);
+            _dialogs.ShowError("Couldn't save", "PicKit couldn't move this image to its folder. Use Save As to choose another.", ex.Message);
+            return false;
+        }
+
+        WaitingPath = null;
+        ReplaceInStrip(path, kept);
+        RememberRecent(kept);
+
+        var saved = true;
+        if (document.IsDirty)
+        {
+            document.UpdateSourcePath(kept);
+            saved = await _saver.SaveAsync(Editor, confirmReplace: false);
+        }
+        else
+        {
+            document.MarkSaved(document.Source with { Path = kept, Name = null });
+        }
+
+        RefreshDocumentText();
+        if (saved)
+        {
+            ShowNotice($"Saved to {Path.GetDirectoryName(kept)}");
+        }
+
+        return saved;
+    }
+
+    [RelayCommand]
+    private async Task TrashWaitingAsync()
+    {
+        if (WaitingPath is not { } path)
+        {
+            return;
+        }
+
+        await Editor.WaitUntilIdleAsync();
+        try
+        {
+            _inbox.Trash(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or OperationCanceledException)
+        {
+            Log.Warn("Could not trash a waiting image", ex);
+            _dialogs.ShowError("Couldn't move it to the Recycle Bin", "PicKit couldn't remove this image.", ex.Message);
+            return;
+        }
+
+        WaitingPath = null;
+        var remaining = OpenImages.Where(image => image.Path != path).Select(image => image.Path).ToList();
+        SetOpenImages(remaining);
+        if (remaining.Count > 0)
+        {
+            await LoadAsync(remaining[0]);
+        }
+        else
+        {
+            CloseDocument();
+        }
+    }
+
+    private void ReplaceInStrip(string from, string to)
+    {
+        for (var i = 0; i < OpenImages.Count; i++)
+        {
+            if (OpenImages[i].Path == from)
+            {
+                var wasSelected = ReferenceEquals(SelectedImage, OpenImages[i]);
+                _isSyncingSelection = true;
+                OpenImages[i] = new OpenImage(to);
+                if (wasSelected)
+                {
+                    SelectedImage = OpenImages[i];
+                }
+
+                _isSyncingSelection = false;
+            }
+        }
+    }
+
+    private void CloseDocument()
+    {
+        var document = Editor.Document;
+        Editor.Document = null;
+        document?.Dispose();
+        RefreshDocumentText();
+    }
+
+    private void OnDocumentContentChanged()
+    {
+        // Save As gave it a real file somewhere else, so the waiting copy has done its job.
+        if (WaitingPath is { } path && Editor.Document?.Source.Path is { } saved)
+        {
+            SafeFile.TryDelete(path);
+            WaitingPath = null;
+            ReplaceInStrip(path, saved);
+        }
+
+        RefreshDocumentText();
     }
 
     private async Task CopyToClipboardAsync(CopyMode mode)
@@ -318,12 +531,13 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
-    private void ShowDocument(EditorDocument document)
+    private void ShowDocument(EditorDocument document, string? waitingPath = null)
     {
         App.EnsurePanelsLoaded();
         var previous = Editor.Document;
         Editor.Document = document;
         previous?.Dispose();
+        WaitingPath = waitingPath;
         RefreshDocumentText();
     }
 
@@ -409,13 +623,18 @@ public sealed partial class MainViewModel : ObservableObject
             OpenImages.Add(new OpenImage(path));
         }
 
-        OnPropertyChanged(nameof(HasMultipleImages));
-        BatchAllCommand.NotifyCanExecuteChanged();
-        RenameAllCommand.NotifyCanExecuteChanged();
+        OnOpenImagesChanged();
 
         _isSyncingSelection = true;
         SelectedImage = OpenImages.FirstOrDefault();
         _isSyncingSelection = false;
+    }
+
+    private void OnOpenImagesChanged()
+    {
+        OnPropertyChanged(nameof(HasMultipleImages));
+        BatchAllCommand.NotifyCanExecuteChanged();
+        RenameAllCommand.NotifyCanExecuteChanged();
     }
 
     private void ShowBatch(IReadOnlyList<string> images, BatchOperation operation)
@@ -532,12 +751,20 @@ public sealed partial class MainViewModel : ObservableObject
         {
             var decoded = await Task.Run(() => ImageDecoder.Decode(path));
             var size = new FileInfo(path).Length;
-            var source = new DocumentSource(path, decoded.Format, size, decoded.FrameCount);
+
+            // A waiting image has no file of its own yet, so nothing can save back into the inbox.
+            var isWaiting = _inbox.Contains(path);
+            var source = isWaiting
+                ? new DocumentSource(null, decoded.Format, size, decoded.FrameCount, Path.GetFileName(path))
+                : new DocumentSource(path, decoded.Format, size, decoded.FrameCount);
 
             await Editor.WaitUntilIdleAsync();
 
-            ShowDocument(new EditorDocument(decoded.Pixels, source));
-            RememberRecent(path);
+            ShowDocument(new EditorDocument(decoded.Pixels, source), isWaiting ? path : null);
+            if (!isWaiting)
+            {
+                RememberRecent(path);
+            }
 
             if (decoded.IsIncomplete)
             {

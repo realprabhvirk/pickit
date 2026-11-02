@@ -5,6 +5,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using PicKit.Core.Background;
 using PicKit.Core.Rendering;
 using PicKit.Core.Settings;
 using PicKit.Core.Shell;
@@ -38,7 +39,11 @@ public partial class MainWindow : Window
         viewModel.Editor.Markup.PropertyChanged += OnMarkupToolChanged;
         viewModel.Editor.Text.PropertyChanged += OnMarkupToolChanged;
         Deactivated += (_, _) => Canvas.IsPanModifierHeld = false;
-        Activated += (_, _) => viewModel.RefreshClipboardState();
+        Activated += (_, _) =>
+        {
+            viewModel.RefreshClipboardState();
+            viewModel.ShowWaitingImages();
+        };
         viewModel.ActivationRequested += BringToFront;
     }
 
@@ -297,11 +302,11 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnDrop(object sender, DragEventArgs e)
+    private async void OnDrop(object sender, DragEventArgs e)
     {
-        if (e.Data.GetData(DataFormats.FileDrop) is string[] paths)
+        if (e.Data is System.Runtime.InteropServices.ComTypes.IDataObject data)
         {
-            _viewModel.Handle(new LaunchRequest(ShellAction.Open, paths));
+            await _viewModel.OpenDroppedAsync(DropReader.Read(data));
         }
     }
 

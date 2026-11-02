@@ -13,6 +13,8 @@
     <!-- The Fluent theme is still marked experimental; it is the native look this app wants. -->
     <NoWarn>$(NoWarn);WPF0001</NoWarn>
     <TieredPGO>false</TieredPGO>
+    <!-- Images live outside the managed heap, so a background collector thread earns nothing here. -->
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
     <PublishReadyToRun Condition="'$(Configuration)' == 'Release'">true</PublishReadyToRun>
     <!-- Measured: compiling the app and framework together starts about 240 ms faster. -->
     <PublishReadyToRunComposite Condition="'$(Configuration)' == 'Release'">true</PublishReadyToRunComposite>

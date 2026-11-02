@@ -5,6 +5,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using PicKit.Core.Background;
 using PicKit.Core.Settings;
 using PicKit.Services;
 using PicKit.ViewModels;
@@ -152,7 +153,14 @@ internal sealed class UiHarness : IDisposable
         var dialogs = new ScriptedDialogs();
         var clipboard = new FakeClipboard();
         var recent = new RecentFiles(Path.Combine(folder, ".recent.json"));
-        var viewModel = new MainViewModel(settings, dialogs, clipboard, recent) { RenameHistoryPath = Path.Combine(folder, ".rename-history.json") };
+        var inbox = new ImageInbox(Path.Combine(folder, ".inbox"));
+        var background = new BackgroundSettingsStore(Path.Combine(folder, ".background.json"));
+        background.Update(saved => saved.SaveFolder = Path.Combine(folder, "Saved"));
+        var viewModel = new MainViewModel(settings, dialogs, clipboard, recent, inbox, background)
+        {
+            RenameHistoryPath = Path.Combine(folder, ".rename-history.json"),
+        };
+
         var window = new MainWindow(viewModel, settings)
         {
             ShowActivated = false,

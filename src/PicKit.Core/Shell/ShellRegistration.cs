@@ -16,6 +16,7 @@ public sealed class ShellRegistration
     private const string CapabilitiesKey = @"PicKit\Capabilities";
     private const string RegisteredApplicationsKey = "RegisteredApplications";
     private const string AppName = "PicKit";
+    private const string RunKey = @"Microsoft\Windows\CurrentVersion\Run";
 
     /// <summary>The verb stays available for up to 100 selected files, Windows' limit for this kind of entry.</summary>
     private const string MultiSelectModel = "Player";
@@ -58,6 +59,15 @@ public sealed class ShellRegistration
         }
     }
 
+    public bool IsBackgroundRegistered
+    {
+        get
+        {
+            using var key = _software.OpenSubKey(RunKey);
+            return key?.GetValue(AppName) is not null;
+        }
+    }
+
     public bool IsOpenWithRegistered
     {
         get
@@ -73,6 +83,19 @@ public sealed class ShellRegistration
             Registry.CurrentUser.CreateSubKey(@"Software\Classes"),
             Registry.CurrentUser.CreateSubKey("Software"),
             executable);
+    }
+
+    /// <summary>Starts the background helper at sign-in. It appears in Windows' Startup apps.</summary>
+    public void RegisterBackground()
+    {
+        using var key = _software.CreateSubKey(RunKey);
+        key.SetValue(AppName, $"\"{_executable}\" {LaunchRequest.SwitchFor(ShellAction.Background)}");
+    }
+
+    public void UnregisterBackground()
+    {
+        using var key = _software.OpenSubKey(RunKey, writable: true);
+        key?.DeleteValue(AppName, throwOnMissingValue: false);
     }
 
     /// <summary>Adds the right-click menu on image files.</summary>
@@ -186,6 +209,7 @@ public sealed class ShellRegistration
     {
         UnregisterMenu();
         UnregisterOpenWith();
+        UnregisterBackground();
     }
 
     private static void DeleteIfEmpty(RegistryKey root, string path)

@@ -310,6 +310,30 @@
                     Style="{StaticResource CanvasScrollBar}"
                     Visibility="Collapsed" />
 
+                <Border
+                    Margin="0,12,0,0"
+                    Padding="14,8"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Top"
+                    Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Visibility="{Binding IsWaitingImage, Converter={StaticResource BooleanToVisibility}}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock
+                            Margin="0,0,14,0"
+                            VerticalAlignment="Center"
+                            Text="This image isn't saved yet" />
+                        <Button
+                            Margin="0,0,8,0"
+                            Command="{Binding KeepWaitingCommand}"
+                            Content="Save"
+                            Style="{DynamicResource AccentButtonStyle}" />
+                        <Button Command="{Binding TrashWaitingCommand}" Content="Trash" />
+                    </StackPanel>
+                </Border>
+
                 <ProgressBar
                     VerticalAlignment="Top"
                     IsIndeterminate="True"

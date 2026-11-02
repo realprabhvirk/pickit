@@ -1,4 +1,7 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using PicKit.Background;
+using PicKit.Core.Background;
 using PicKit.Core.Diagnostics;
 using PicKit.Core.Shell;
 
@@ -17,6 +20,18 @@ public static class Program
             return 0;
         }
 
+        switch (request.Action)
+        {
+            case ShellAction.Background:
+                return BackgroundAgent.Run(Environment.ProcessPath!);
+            case ShellAction.StopBackground:
+                BackgroundSignals.Stop();
+                return 0;
+            case ShellAction.TakeScreenshot:
+                BackgroundSignals.TakeScreenshot();
+                return 0;
+        }
+
         using var channel = new InstanceChannel(InstanceName);
         if (!channel.IsPrimary && HandOff(channel, request))
         {
@@ -31,7 +46,13 @@ public static class Program
         }
 
         inbox.Add(request);
+        return RunApp(inbox);
+    }
 
+    /// <summary>Kept apart from Main so the background helper never loads WPF.</summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static int RunApp(LaunchInbox inbox)
+    {
         var app = new App(inbox);
         app.InitializeComponent();
         return app.Run();
@@ -40,7 +61,7 @@ public static class Program
     /// <summary>Lets the installer change Explorer integration without showing any UI.</summary>
     private static bool RunInstallerTask(ShellAction action)
     {
-        if (action is not (ShellAction.RegisterMenu or ShellAction.RegisterOpenWith or ShellAction.Unregister))
+        if (action is not (ShellAction.RegisterMenu or ShellAction.RegisterOpenWith or ShellAction.RegisterBackground or ShellAction.Unregister))
         {
             return false;
         }
@@ -55,6 +76,9 @@ public static class Program
             case ShellAction.RegisterOpenWith:
                 registration.RegisterOpenWith();
                 break;
+            case ShellAction.RegisterBackground:
+                registration.RegisterBackground();
+                return true;
             default:
                 registration.UnregisterAll();
                 break;

@@ -20,6 +20,18 @@ public enum ShellAction
 
     /// <summary>Run by the uninstaller. Removes everything PicKit added.</summary>
     Unregister,
+
+    /// <summary>Run by the installer. Starts the background helper at each sign-in.</summary>
+    RegisterBackground,
+
+    /// <summary>Runs the background helper, which holds the hotkey and the drop box.</summary>
+    Background,
+
+    /// <summary>Asks a running background helper to exit.</summary>
+    StopBackground,
+
+    /// <summary>Asks a running background helper to take a screenshot.</summary>
+    TakeScreenshot,
 }
 
 /// <summary>What the app was started to do.</summary>
@@ -37,6 +49,10 @@ public sealed record LaunchRequest(ShellAction Action, IReadOnlyList<string> Pat
         ["--register-menu"] = ShellAction.RegisterMenu,
         ["--register-open-with"] = ShellAction.RegisterOpenWith,
         ["--unregister"] = ShellAction.Unregister,
+        ["--register-background"] = ShellAction.RegisterBackground,
+        ["--background"] = ShellAction.Background,
+        ["--stop-background"] = ShellAction.StopBackground,
+        ["--screenshot"] = ShellAction.TakeScreenshot,
     };
 
     public static string SwitchFor(ShellAction action) => Switches.First(pair => pair.Value == action).Key;

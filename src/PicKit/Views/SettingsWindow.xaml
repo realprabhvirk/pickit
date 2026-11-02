@@ -105,6 +105,35 @@
             <TextBlock
                 Margin="0,22,0,8"
                 Style="{StaticResource PanelHeading}"
+                Text="Screenshots" />
+            <CheckBox Content="Keep PicKit running, for Ctrl+Alt+S and the drop box" IsChecked="{Binding RunInBackground}" />
+            <CheckBox
+                Content="Show the drop box at the edge of the screen"
+                IsChecked="{Binding ShowDropBox}"
+                IsEnabled="{Binding RunInBackground}" />
+            <TextBlock
+                Margin="0,4,0,10"
+                Style="{StaticResource BodyHint}"
+                Text="Ctrl+Alt+S captures the screen under your mouse. Windows that block capture, such as protected video, come out black." />
+            <TextBlock Style="{StaticResource FieldLabel}" Text="Save screenshots to" />
+            <DockPanel>
+                <Button
+                    Margin="8,0,0,0"
+                    Command="{Binding ChooseSaveFolderCommand}"
+                    Content="Change"
+                    DockPanel.Dock="Right" />
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Style="{StaticResource BodyHint}"
+                    Text="{Binding SaveFolder}"
+                    TextTrimming="CharacterEllipsis"
+                    TextWrapping="NoWrap"
+                    ToolTip="{Binding SaveFolder}" />
+            </DockPanel>
+
+            <TextBlock
+                Margin="0,22,0,8"
+                Style="{StaticResource PanelHeading}"
                 Text="File Explorer" />
             <CheckBox Content="Show PicKit when right-clicking images" IsChecked="{Binding ExplorerMenu}" />
             <CheckBox Content="List PicKit under Open with" IsChecked="{Binding OpenWith}" />

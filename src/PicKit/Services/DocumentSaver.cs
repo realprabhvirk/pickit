@@ -23,7 +23,7 @@ public sealed class DocumentSaver
     }
 
     /// <summary>Saves over the current file, asking first unless the user turned that off.</summary>
-    public Task<bool> SaveAsync(EditorViewModel editor)
+    public Task<bool> SaveAsync(EditorViewModel editor, bool confirmReplace = true)
     {
         if (editor.Document is not { } document)
         {
@@ -43,7 +43,7 @@ public sealed class DocumentSaver
             return SaveAsAsync(editor, ExportService.OutputPathFor(path, "transparent", ImageFormat.Png), ImageFormat.Png);
         }
 
-        if (_settings.Current.ConfirmOverwrite && !ConfirmReplace(document, path))
+        if (confirmReplace && _settings.Current.ConfirmOverwrite && !ConfirmReplace(document, path))
         {
             return Task.FromResult(false);
         }
@@ -70,7 +70,7 @@ public sealed class DocumentSaver
             return Task.FromResult(false);
         }
 
-        var suggested = suggestedPath ?? document.Source.Path ?? "Pasted image";
+        var suggested = suggestedPath ?? document.Source.Path ?? document.Source.DisplayName;
         var preferred = suggestedFormat
             ?? (ImageFormats.CanEncode(document.Source.Format) ? document.Source.Format : DefaultFormat());
 

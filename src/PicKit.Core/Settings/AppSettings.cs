@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using PicKit.Core.Background;
 
 namespace PicKit.Core.Settings;
 
@@ -56,5 +57,6 @@ public sealed class AppSettings
 
 [JsonSourceGenerationOptions(WriteIndented = true, UseStringEnumConverter = true)]
 [JsonSerializable(typeof(AppSettings))]
+[JsonSerializable(typeof(BackgroundSettings))]
 [JsonSerializable(typeof(List<string>))]
 public sealed partial class SettingsJsonContext : JsonSerializerContext;

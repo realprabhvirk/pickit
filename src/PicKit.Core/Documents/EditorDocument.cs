@@ -6,9 +6,10 @@ using SkiaSharp;
 namespace PicKit.Core.Documents;
 
 /// <summary>Where a document came from. A clipboard image has no path.</summary>
-public sealed record DocumentSource(string? Path, ImageFormat Format, long FileSize, int FrameCount = 1)
+/// <param name="Name">What to call an image that has no file of its own yet.</param>
+public sealed record DocumentSource(string? Path, ImageFormat Format, long FileSize, int FrameCount = 1, string? Name = null)
 {
-    public string DisplayName => Path is null ? "Pasted image" : System.IO.Path.GetFileName(Path);
+    public string DisplayName => Path is null ? Name ?? "Pasted image" : System.IO.Path.GetFileName(Path);
 }
 
 public enum DocumentChangeKind

@@ -14,6 +14,18 @@ public static class AppPaths
 
     public static string RenameHistory => Path.Combine(Data, "rename-history.json");
 
+    public static string BackgroundSettings => Path.Combine(Data, "background.json");
+
+    /// <summary>Images that have arrived but haven't been saved or trashed yet.</summary>
+    public static string Inbox => Path.Combine(Data, "inbox");
+
+    /// <summary>
+    /// Built from the profile folder rather than the Pictures known folder, which OneDrive can
+    /// redirect. A screenshot saved here stays on this PC.
+    /// </summary>
+    public static string DefaultSaveFolder => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Pictures", "PicKit");
+
     public static string TempRoot => Path.Combine(Path.GetTempPath(), "PicKit");
 
     /// <summary>Scratch space for this process, removed on exit and swept on the next start.</summary>

@@ -6,6 +6,7 @@ using PicKit.Core.Diagnostics;
 using PicKit.Core.Files;
 using PicKit.Core.Imaging;
 using PicKit.Core.Settings;
+using PicKit.Core.Shell;
 using PicKit.Services;
 using PicKit.ViewModels;
 using PicKit.Views;
@@ -65,6 +66,12 @@ public partial class App : Application
 
         // Sweeping old temp folders can touch the disk, so it never delays the first paint.
         _ = Task.Run(TempFiles.SweepAbandonedSessions);
+
+        // Started here too, in case it stopped: the hotkey should work whenever PicKit is around.
+        if (ShellRegistration.ForCurrentUser(Environment.ProcessPath!).IsBackgroundRegistered)
+        {
+            new BackgroundControl().Start();
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)
