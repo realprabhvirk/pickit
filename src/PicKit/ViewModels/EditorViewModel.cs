@@ -32,7 +32,7 @@ public sealed partial class EditorViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanvasTool))]
-    [NotifyPropertyChangedFor(nameof(HasActiveTool))]
+    [NotifyPropertyChangedFor(nameof(HasToolPanel))]
     private ToolViewModel? _activeTool;
 
     [ObservableProperty]
@@ -50,6 +50,7 @@ public sealed partial class EditorViewModel : ObservableObject
     public EditorViewModel(DialogService dialogs, DocumentSaver saver)
     {
         _dialogs = dialogs;
+        Select = new SelectToolViewModel(this);
         Crop = new CropToolViewModel(this);
         Resize = new ResizeToolViewModel(this, saver);
         Rotate = new RotateToolViewModel(this);
@@ -101,7 +102,7 @@ public sealed partial class EditorViewModel : ObservableObject
 
         Background = new BackgroundToolViewModel(this);
 
-        EditTools = [Crop, Resize, Rotate, Markup, Text, Highlight, Blur, Pixelate, Redact, Background];
+        EditTools = [Select, Crop, Resize, Rotate, Markup, Text, Highlight, Blur, Pixelate, Redact, Background];
 
         Compress = new CompressToolViewModel(this, saver, dialogs);
         Convert = new ConvertToolViewModel(this, saver, dialogs);
@@ -113,6 +114,8 @@ public sealed partial class EditorViewModel : ObservableObject
 
     /// <summary>The canvas should repaint, because a tool's unapplied work changed.</summary>
     public event Action? RedrawRequested;
+
+    public SelectToolViewModel Select { get; }
 
     public CropToolViewModel Crop { get; }
 
@@ -150,7 +153,7 @@ public sealed partial class EditorViewModel : ObservableObject
 
     public bool HasDocument => Document is not null;
 
-    public bool HasActiveTool => ActiveTool is not null;
+    public bool HasToolPanel => ActiveTool is { HasPanel: true };
 
     public bool IsIdle => !IsBusy;
 
@@ -298,7 +301,7 @@ public sealed partial class EditorViewModel : ObservableObject
 
     public void ClearActiveTool()
     {
-        ActiveTool = null;
+        ActiveTool = Select;
     }
 
     partial void OnDocumentChanged(EditorDocument? oldValue, EditorDocument? newValue)
@@ -313,7 +316,7 @@ public sealed partial class EditorViewModel : ObservableObject
             newValue.Changed += OnDocumentContentChanged;
         }
 
-        ActiveTool = null;
+        ActiveTool = Select;
         NotifyHistory();
     }
 
@@ -326,7 +329,12 @@ public sealed partial class EditorViewModel : ObservableObject
 
     partial void OnSelectedTabChanged(EditorTab value)
     {
-        ActiveTool = value == EditorTab.ResizeFor && HasDocument ? Presets : null;
+        ActiveTool = value switch
+        {
+            EditorTab.ResizeFor when HasDocument => Presets,
+            EditorTab.Tools => null,
+            _ => Select,
+        };
     }
 
     private void OnDocumentContentChanged(DocumentChange change)

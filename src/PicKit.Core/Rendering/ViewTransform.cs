@@ -2,6 +2,9 @@ using SkiaSharp;
 
 namespace PicKit.Core.Rendering;
 
+/// <summary>Where a scroll bar stands, in device pixels. A maximum of 0 means nothing to scroll.</summary>
+public readonly record struct ScrollAxis(double Maximum, double Value, double Viewport);
+
 /// <summary>
 /// The single source of truth for mapping between viewport device pixels and image pixels.
 /// A zoom of 1 means one image pixel covers exactly one device pixel. Zooming and panning
@@ -69,6 +72,10 @@ public sealed class ViewTransform
         }
     }
 
+    public ScrollAxis HorizontalScroll => ScrollFor(OffsetX, ImageWidth * Zoom, ViewportWidth);
+
+    public ScrollAxis VerticalScroll => ScrollFor(OffsetY, ImageHeight * Zoom, ViewportHeight);
+
     public SKPoint ImageToView(SKPoint point) => new(
         (float)((point.X * Zoom) + Math.Round(OffsetX)),
         (float)((point.Y * Zoom) + Math.Round(OffsetY)));
@@ -122,6 +129,21 @@ public sealed class ViewTransform
         OffsetX += deltaX;
         OffsetY += deltaY;
         Clamp();
+    }
+
+    /// <summary>Moves to scroll bar positions, measured from the top-left of the image's margin.</summary>
+    public void ScrollTo(double horizontal, double vertical)
+    {
+        IsFitted = false;
+        OffsetX = Padding - horizontal;
+        OffsetY = Padding - vertical;
+        Clamp();
+    }
+
+    private ScrollAxis ScrollFor(double offset, double imageSize, double viewportSize)
+    {
+        var maximum = Math.Max(0, imageSize + (2 * Padding) - viewportSize);
+        return new ScrollAxis(maximum, Math.Clamp(Padding - offset, 0, maximum), viewportSize);
     }
 
     /// <summary>Centres an axis that fits the viewport; otherwise keeps the image over the viewport.</summary>

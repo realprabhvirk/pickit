@@ -291,6 +291,25 @@
                         Visibility="Collapsed" />
                 </Canvas>
 
+                <ScrollBar
+                    x:Name="VerticalBar"
+                    Margin="0,0,0,14"
+                    HorizontalAlignment="Right"
+                    AutomationProperties.Name="Scroll up and down"
+                    Orientation="Vertical"
+                    Scroll="OnScrollBarMoved"
+                    Style="{StaticResource CanvasScrollBar}"
+                    Visibility="Collapsed" />
+                <ScrollBar
+                    x:Name="HorizontalBar"
+                    Margin="0,0,14,0"
+                    VerticalAlignment="Bottom"
+                    AutomationProperties.Name="Scroll left and right"
+                    Orientation="Horizontal"
+                    Scroll="OnScrollBarMoved"
+                    Style="{StaticResource CanvasScrollBar}"
+                    Visibility="Collapsed" />
+
                 <ProgressBar
                     VerticalAlignment="Top"
                     IsIndeterminate="True"
@@ -377,7 +396,7 @@
                 BorderThickness="1,0,0,0"
                 IsEnabled="{Binding Editor.IsIdle}"
                 PreviewMouseLeftButtonUp="OnToolPanelMouseUp"
-                Visibility="{Binding Editor.HasActiveTool, Converter={StaticResource BooleanToVisibility}}">
+                Visibility="{Binding Editor.HasToolPanel, Converter={StaticResource BooleanToVisibility}}">
                 <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="16,14">
                         <TextBlock

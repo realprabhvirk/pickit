@@ -249,6 +249,88 @@
         </Setter>
     </Style>
 
+    <!-- Scroll bars over the image stay full size: the theme's thin ones vanish against a bright photo. -->
+    <Style x:Key="CanvasScrollTrack" TargetType="RepeatButton" BasedOn="{x:Null}">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RepeatButton">
+                    <Border Background="Transparent" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="CanvasScrollThumb" TargetType="Thumb" BasedOn="{x:Null}">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Border
+                        x:Name="Grip"
+                        Margin="3"
+                        Background="{DynamicResource TextFillColorPrimaryBrush}"
+                        CornerRadius="4"
+                        Opacity="0.6" />
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Grip" Property="Opacity" Value="0.85" />
+                        </Trigger>
+                        <Trigger Property="IsDragging" Value="True">
+                            <Setter TargetName="Grip" Property="Opacity" Value="1" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <ControlTemplate x:Key="CanvasScrollVertical" TargetType="ScrollBar">
+        <Border Background="{DynamicResource SolidBackgroundFillColorBaseBrush}">
+            <Track x:Name="PART_Track" IsDirectionReversed="True">
+                <Track.DecreaseRepeatButton>
+                    <RepeatButton Command="ScrollBar.PageUpCommand" Style="{StaticResource CanvasScrollTrack}" />
+                </Track.DecreaseRepeatButton>
+                <Track.Thumb>
+                    <Thumb MinHeight="28" Style="{StaticResource CanvasScrollThumb}" />
+                </Track.Thumb>
+                <Track.IncreaseRepeatButton>
+                    <RepeatButton Command="ScrollBar.PageDownCommand" Style="{StaticResource CanvasScrollTrack}" />
+                </Track.IncreaseRepeatButton>
+            </Track>
+        </Border>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="CanvasScrollHorizontal" TargetType="ScrollBar">
+        <Border Background="{DynamicResource SolidBackgroundFillColorBaseBrush}">
+            <Track x:Name="PART_Track">
+                <Track.DecreaseRepeatButton>
+                    <RepeatButton Command="ScrollBar.PageLeftCommand" Style="{StaticResource CanvasScrollTrack}" />
+                </Track.DecreaseRepeatButton>
+                <Track.Thumb>
+                    <Thumb MinWidth="28" Style="{StaticResource CanvasScrollThumb}" />
+                </Track.Thumb>
+                <Track.IncreaseRepeatButton>
+                    <RepeatButton Command="ScrollBar.PageRightCommand" Style="{StaticResource CanvasScrollTrack}" />
+                </Track.IncreaseRepeatButton>
+            </Track>
+        </Border>
+    </ControlTemplate>
+
+    <Style x:Key="CanvasScrollBar" TargetType="ScrollBar" BasedOn="{x:Null}">
+        <Setter Property="Template" Value="{StaticResource CanvasScrollVertical}" />
+        <Setter Property="Width" Value="14" />
+        <Style.Triggers>
+            <Trigger Property="Orientation" Value="Horizontal">
+                <Setter Property="Template" Value="{StaticResource CanvasScrollHorizontal}" />
+                <Setter Property="Width" Value="NaN" />
+                <Setter Property="Height" Value="14" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- Bare list: no chrome of its own, so rail and chip items carry the look. -->
     <Style x:Key="PlainList" TargetType="ListBox" BasedOn="{x:Null}">
         <Setter Property="Background" Value="Transparent" />

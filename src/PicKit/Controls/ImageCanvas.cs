@@ -85,6 +85,9 @@ public sealed class ImageCanvas : FrameworkElement
 
     public ViewTransform View { get; } = new();
 
+    /// <summary>The visible part of the image moved, or the image itself changed.</summary>
+    public event Action? ViewChanged;
+
     public ICommand ZoomInCommand { get; }
 
     public ICommand ZoomOutCommand { get; }
@@ -98,7 +101,15 @@ public sealed class ImageCanvas : FrameworkElement
 
     private ImageBuffer? Image => Document?.Pixels;
 
+    private Cursor? IdleCursor => Image is not null && Tool is null ? Cursors.Hand : null;
+
     public void Redraw() => InvalidateVisual();
+
+    public void ScrollTo(double horizontal, double vertical)
+    {
+        View.ScrollTo(horizontal, vertical);
+        InvalidateVisual();
+    }
 
     protected override void OnRender(DrawingContext drawingContext)
     {
@@ -119,6 +130,7 @@ public sealed class ImageCanvas : FrameworkElement
         View.DeviceScale = (float)scale.DpiScaleX;
         View.SetViewport(pixelWidth, pixelHeight);
         UpdateZoomText();
+        ViewChanged?.Invoke();
 
         var surface = SurfaceFor(pixelWidth, pixelHeight, scale);
         surface.Lock();
@@ -242,7 +254,7 @@ public sealed class ImageCanvas : FrameworkElement
         if (_isPanning && button is MouseButton.Left or MouseButton.Middle)
         {
             _isPanning = false;
-            Cursor = null;
+            Cursor = IdleCursor;
             return true;
         }
 
@@ -355,12 +367,14 @@ public sealed class ImageCanvas : FrameworkElement
             UpdateZoomText();
         }
 
+        Cursor = IdleCursor;
+        ViewChanged?.Invoke();
         InvalidateVisual();
     }
 
     private void OnToolChanged()
     {
-        Cursor = null;
+        Cursor = IdleCursor;
         InvalidateVisual();
     }
 

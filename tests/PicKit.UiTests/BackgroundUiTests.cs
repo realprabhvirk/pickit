@@ -104,7 +104,7 @@ public class BackgroundUiTests
         editor.CancelCommand.Execute(null);
         harness.Pump();
 
-        Assert.Null(editor.ActiveTool);
+        Assert.Same(editor.Select, editor.ActiveTool);
         Assert.Equal(255u, Alpha(editor.Document!.Pixels, 200, 100));
         Assert.False(editor.Document.History.CanUndo);
     });
@@ -187,7 +187,7 @@ public class BackgroundUiTests
         editor.CancelCommand.Execute(null);
         harness.Pump();
 
-        Assert.Null(editor.ActiveTool);
+        Assert.Same(editor.Select, editor.ActiveTool);
         Assert.Equal(255u, Alpha(editor.Document!.Pixels, 20, 20));
 
         await Task.Delay(100);

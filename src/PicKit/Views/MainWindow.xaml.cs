@@ -1,9 +1,11 @@
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using PicKit.Core.Rendering;
 using PicKit.Core.Settings;
 using PicKit.Core.Shell;
 using PicKit.ViewModels;
@@ -13,6 +15,9 @@ namespace PicKit.Views;
 
 public partial class MainWindow : Window
 {
+    private const double ScrollStep = 40;
+    private const double PageOverlap = 0.9;
+
     private readonly MainViewModel _viewModel;
     private readonly SettingsStore _settings;
     private MarkupToolViewModel? _textTool;
@@ -29,6 +34,7 @@ public partial class MainWindow : Window
         PreviewKeyDown += OnPreviewKeyDown;
         PreviewKeyUp += OnPreviewKeyUp;
         viewModel.Editor.RedrawRequested += Canvas.Redraw;
+        Canvas.ViewChanged += OnCanvasViewChanged;
         viewModel.Editor.Markup.PropertyChanged += OnMarkupToolChanged;
         viewModel.Editor.Text.PropertyChanged += OnMarkupToolChanged;
         Deactivated += (_, _) => Canvas.IsPanModifierHeld = false;
@@ -88,6 +94,34 @@ public partial class MainWindow : Window
         {
             Canvas.IsPanModifierHeld = false;
         }
+    }
+
+    private void OnCanvasViewChanged()
+    {
+        UpdateScrollBar(HorizontalBar, Canvas.View.HorizontalScroll);
+        UpdateScrollBar(VerticalBar, Canvas.View.VerticalScroll);
+    }
+
+    private void UpdateScrollBar(ScrollBar bar, ScrollAxis axis)
+    {
+        var isNeeded = _viewModel.HasImage && axis.Maximum > 0;
+        bar.Visibility = isNeeded ? Visibility.Visible : Visibility.Collapsed;
+        if (isNeeded)
+        {
+            bar.Maximum = axis.Maximum;
+            bar.ViewportSize = axis.Viewport;
+            bar.LargeChange = axis.Viewport * PageOverlap;
+            bar.SmallChange = ScrollStep;
+            bar.Value = axis.Value;
+        }
+    }
+
+    private void OnScrollBarMoved(object sender, ScrollEventArgs e)
+    {
+        var view = Canvas.View;
+        var horizontal = ReferenceEquals(sender, HorizontalBar) ? e.NewValue : view.HorizontalScroll.Value;
+        var vertical = ReferenceEquals(sender, VerticalBar) ? e.NewValue : view.VerticalScroll.Value;
+        Canvas.ScrollTo(horizontal, vertical);
     }
 
     private void OnOpenSettings(object sender, RoutedEventArgs e)

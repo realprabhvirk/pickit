@@ -41,7 +41,7 @@ public class EditingUiTests
         harness.Pump();
 
         Assert.Equal((expected.Width, expected.Height), (editor.Document!.Pixels.Width, editor.Document.Pixels.Height));
-        Assert.Null(editor.ActiveTool);
+        Assert.Same(editor.Select, editor.ActiveTool);
         Assert.True(canvas.View.IsFitted);
         Assert.StartsWith("● ", harness.ViewModel.WindowTitle);
 
@@ -67,7 +67,7 @@ public class EditingUiTests
         editor.CancelCommand.Execute(null);
         harness.Pump();
 
-        Assert.Null(editor.ActiveTool);
+        Assert.Same(editor.Select, editor.ActiveTool);
         Assert.Equal(800, editor.Document!.Pixels.Width);
         Assert.False(editor.Document.History.CanUndo);
     });

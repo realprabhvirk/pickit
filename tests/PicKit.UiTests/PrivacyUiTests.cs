@@ -137,7 +137,7 @@ public class PrivacyUiTests
 
         editor.CancelCommand.Execute(null);
         harness.Pump();
-        Assert.Null(editor.ActiveTool);
+        Assert.Same(editor.Select, editor.ActiveTool);
         Assert.Equal(original, Pixel(harness, 600, 400));
     });
 

@@ -34,6 +34,9 @@ public abstract class ToolViewModel : ObservableObject
 
     public virtual IToolHistory? History => null;
 
+    /// <summary>False for a tool with nothing to adjust, so the image keeps the panel's space.</summary>
+    public virtual bool HasPanel => true;
+
     protected EditorViewModel Editor { get; }
 
     public virtual void Activate()

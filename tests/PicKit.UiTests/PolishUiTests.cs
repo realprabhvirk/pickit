@@ -194,7 +194,7 @@ public class PolishUiTests
 
         var rail = Descendants(harness.Window).OfType<ListBox>().First(list => AutomationProperties.GetName(list) == "Tools");
         var item = (ListBoxItem)rail.ItemContainerGenerator.ContainerFromIndex(0);
-        Assert.Equal("Crop", UIElementAutomationPeer.CreatePeerForElement(item)!.GetName());
+        Assert.Equal("Select", UIElementAutomationPeer.CreatePeerForElement(item)!.GetName());
     });
 
     [Fact]
